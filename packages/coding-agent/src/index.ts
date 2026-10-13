@@ -405,11 +405,21 @@ export {
 	type VirtualModelDefinition,
 	type VirtualModelStateData,
 } from "./core/virtual-models.ts";
+export { createAskUserExtension } from "./extensions/ask-user/index.ts";
 // Built-in extensions. The CLI loads them; SDK sessions add them to their extension factories.
 export { type CodemodeExtensionOptions, createCodemodeExtension } from "./extensions/codemode/index.ts";
 export type { CodemodeStoreEntryData, CodemodeToolDetails } from "./extensions/codemode/tool.ts";
 export type { LoadedMcpConfig, McpExposure, McpServerConfig, McpServerEntry } from "./extensions/mcp/config.ts";
 export { createMcpExtension, type McpExtensionOptions, type McpTransportFactory } from "./extensions/mcp/index.ts";
+export { type AgentDefinition, discoverAgentDefinitions } from "./extensions/subagents/definitions.ts";
+export { createSubagentsExtension, type SubagentRecord } from "./extensions/subagents/index.ts";
+export {
+	default as tasksExtension,
+	readTaskState,
+	type TaskRecord,
+	type TaskState,
+	updateTask,
+} from "./extensions/tasks/index.ts";
 export { createToolSearchExtension } from "./extensions/tool-search/index.ts";
 // Main entry point
 export { type MainOptions, main } from "./main.ts";

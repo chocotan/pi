@@ -86,6 +86,12 @@ describe("outputPad", () => {
 
 	test.each(components)("$name renders at outputPad 0 and 1", ({ create }) => {
 		const component = create(0);
+		if (component instanceof ToolExecutionComponent) {
+			const compactLines = renderLines(component);
+			expect(compactLines).toHaveLength(1);
+			expect(compactLines[0]).toContain("to expand");
+			component.setExpanded(true);
+		}
 		const lines = renderLines(component);
 		expect(lines.filter((line) => line.startsWith(" "))).toEqual([]);
 		component.setOutputPad(1);

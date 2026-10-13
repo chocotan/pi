@@ -119,7 +119,7 @@ export interface ExtensionUIDialogOptions {
 }
 
 /** Placement for extension widgets. */
-export type WidgetPlacement = "aboveEditor" | "belowEditor";
+export type WidgetPlacement = "aboveEditor" | "belowEditor" | "sidebar";
 
 /** Options for extension widgets. */
 export interface ExtensionWidgetOptions {
@@ -1746,6 +1746,9 @@ export interface ExtensionAPI {
 	/** Append a custom entry to the session for state persistence (not sent to LLM). */
 	appendEntry<T = unknown>(customType: string, data?: T): void;
 
+	/** Record model usage from plugin-owned work once, without adding model context. */
+	appendUsage(kind: string, provider: string, model: string, usage: Usage): void;
+
 	// =========================================================================
 	// Session Metadata
 	// =========================================================================
@@ -2152,6 +2155,7 @@ export type SetLabelHandler = (entryId: string, label: string | undefined) => vo
  * Contains flag values (defaults set during registration, CLI values set after).
  */
 export interface ExtensionRuntimeState {
+	appendUsage(kind: string, provider: string, model: string, usage: Usage): void;
 	flagValues: Map<string, boolean | string>;
 	/** Legacy provider-config registrations queued during extension loading, processed when runner binds. */
 	pendingProviderRegistrations: Array<{ name: string; config: ProviderConfig; extensionPath: string }>;

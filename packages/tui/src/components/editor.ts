@@ -170,7 +170,8 @@ export function wordWrapLine(line: string, maxWidth: number, preSegmented?: Intl
 			wrapOppIndex = -1;
 		}
 
-		if (gWidth > maxWidth) {
+		// An indivisible wide grapheme cannot be split; the renderer clips it in a one-column viewport.
+		if (gWidth > maxWidth && [...graphemeSegmenter.segment(grapheme)].length > 1) {
 			// Single atomic segment wider than maxWidth (e.g. paste marker
 			// in a narrow terminal). Re-wrap it at grapheme granularity.
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { UserMessageComponent } from "../src/modes/interactive/components/user-message.ts";
-import { initTheme } from "../src/modes/interactive/theme/theme.ts";
+import { initTheme, theme } from "../src/modes/interactive/theme/theme.ts";
 import { stripAnsi } from "../src/utils/ansi.ts";
 
 const OSC133_ZONE_START = "\x1b]133;A\x07";
@@ -9,6 +9,14 @@ const OSC133_ZONE_FINAL = "\x1b]133;C\x07";
 const BG_RESET = "\x1b[49m";
 
 describe("UserMessageComponent", () => {
+	test.each(["light", "dark"])("renders a full-width user background in %s theme", (name) => {
+		initTheme(name, false);
+		const lines = new UserMessageComponent("Hello world").render(48);
+		const background = theme.getBgAnsi("userMessageBg");
+		expect(background).not.toBe("");
+		expect(lines.every((line) => line.includes(background))).toBe(true);
+		expect(lines.map(stripAnsi).some((line) => line.includes("Hello world"))).toBe(true);
+	});
 	test("keeps user message height stable while moving closing OSC markers off line end", () => {
 		initTheme("dark");
 

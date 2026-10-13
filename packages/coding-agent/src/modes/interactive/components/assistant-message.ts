@@ -1,5 +1,13 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import { Container, Markdown, type MarkdownTheme, MouseRegion, Spacer, Text } from "@earendil-works/pi-tui";
+import {
+	Container,
+	Markdown,
+	type MarkdownTheme,
+	MouseRegion,
+	Spacer,
+	Text,
+	TruncatedText,
+} from "@earendil-works/pi-tui";
 import type { MarkdownTransformer } from "../../../core/extensions/types.ts";
 import { getMarkdownTheme, theme } from "../theme/theme.ts";
 import { createMarkdownTransform } from "./markdown-transform.ts";
@@ -22,10 +30,11 @@ export class AssistantMessageComponent extends Container {
 	private hasToolCalls = false;
 	private isStreaming = false;
 	private thinkingVisibilityOverrides = new Map<number, boolean>();
+	private readonly thinkingTimes = new Map<number, { started: number; ended?: number }>();
 
 	constructor(
 		message?: AssistantMessage,
-		hideThinkingBlock = false,
+		hideThinkingBlock = true,
 		markdownTheme: MarkdownTheme = getMarkdownTheme(),
 		hiddenThinkingLabel = "Thinking...",
 		outputPad = 1,
@@ -141,8 +150,17 @@ export class AssistantMessageComponent extends Container {
 
 				const runIndex = thinkingRunIndex++;
 				const hidden = this.thinkingVisibilityOverrides.get(runIndex) ?? this.hideThinkingBlock;
+				const active = this.isStreaming && i === message.content.length - 1;
+				if (this.isStreaming && !this.thinkingTimes.has(runIndex))
+					this.thinkingTimes.set(runIndex, { started: Date.now() });
+				const timing = this.thinkingTimes.get(runIndex);
+				if (timing && !active && timing.ended === undefined) timing.ended = Date.now();
+				const label = active || this.hiddenThinkingLabel !== "Thinking..." ? this.hiddenThinkingLabel : "Thought";
+				const elapsed = timing
+					? ` · ${(Math.max(0, (timing.ended ?? Date.now()) - timing.started) / 1000).toFixed(1)}s`
+					: "";
 				const thinkingComponent = hidden
-					? new Text(theme.italic(theme.fg("thinkingText", this.hiddenThinkingLabel)), this.outputPad, 0)
+					? new TruncatedText(theme.italic(theme.fg("thinkingText", `▸ ${label}${elapsed}`)), this.outputPad, 0)
 					: new Markdown(
 							thinkingBlocks.join("\n\n"),
 							this.outputPad,

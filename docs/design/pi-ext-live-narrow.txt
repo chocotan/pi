@@ -1,0 +1,32 @@
+ ▸ Ran TaskCreate subject="Verify native UI"     · Took 0.0s · ctrl+o to expand
+
+ ▸ Ran TaskExecute task_ids=["1"]                · Took 0.0s · ctrl+o to expand
+
+ The local UI smoke test completed. No paid model calls were made.
+
+
+ [pi-ext.subagent-completion]
+
+ Subagent b0874102-deed-4479-927e-ee25c73866bc (worker) completed.
+ Local child verification complete.
+ Full session:
+ /tmp/pi-ext-ui-smoke-jrfcxo99/subagents/01a1352a-f8b9-76ba-a3f4-85ece3365d37/2
+ 026-10-13T12-09-31-481Z_01a1352a-fa59-76ba-a3f4-85efef81bf8b.jsonl
+
+
+ The local UI smoke test completed. No paid model calls were made.
+
+
+ Ask a preference.
+
+
+ ▸ Ran Ask user · Approach                       · Took 0.2s · ctrl+o to expand
+
+ Preference received from the native questionnaire.
+
+╭─ local · high──────────────────────────────────────────────────── Done 0.2s ─╮
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+/tmp · No Git
+↑8.5k ↓183 Cache 24k W8.5k CH94.9%
+Context 5.3k/128k · 4.1% (auto)

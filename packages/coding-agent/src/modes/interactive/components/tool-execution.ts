@@ -9,13 +9,20 @@ import {
 	Text,
 	type TUI,
 	type TuiMouseEvent,
+	truncateToWidth,
+	visibleWidth,
 } from "@earendil-works/pi-tui";
 import type { ToolDefinition, ToolRenderContext, ToolRenderers } from "../../../core/extensions/types.ts";
 
 /** What this component needs from a tool: how to draw it, without executing it. */
 export type { ToolRenderers };
 
-import { formatToolCallWithArgs, getTextOutput as getRenderedTextOutput } from "../../../core/tools/render-utils.ts";
+import {
+	formatToolCallWithArgs,
+	getTextOutput as getRenderedTextOutput,
+	toolTimerText,
+} from "../../../core/tools/render-utils.ts";
+import { stripAnsi } from "../../../utils/ansi.ts";
 import { ensurePngTranscoder } from "../../../utils/image-convert.ts";
 import { theme } from "../theme/theme.ts";
 import { keyHint } from "./keybinding-hints.ts";
@@ -228,6 +235,35 @@ export class ToolExecutionComponent extends Container {
 		if (this.hideComponent) {
 			return [];
 		}
+		if (!this.expanded) {
+			if (
+				this.getRenderShell() === "self" &&
+				this.selfRenderContainer.render(width).length === 0 &&
+				this.imageComponents.length === 0
+			)
+				return [];
+			const pad = Math.min(this.outputPad, Math.max(0, Math.floor((width - 1) / 2)));
+			const available = Math.max(1, width - 2 * pad);
+			const status = this.result?.isError
+				? "Failed"
+				: this.isPartial
+					? this.executionStarted
+						? "Running"
+						: "Queued"
+					: "Ran";
+			const timing = toolTimerText(this.getRenderContext(undefined), this.isPartial);
+			const suffix = [timing, keyHint("app.tools.expand", "to expand")].filter(Boolean).join(" · ");
+			const error = this.result?.isError ? ` · ${theme.fg("toolOutput", this.getTextOutput().split("\n")[0])}` : "";
+			const budget = Math.max(1, available - status.length - 3 - visibleWidth(suffix) - visibleWidth(error) - 3);
+			const call =
+				(this.callRendererComponent ?? this.createCallFallback())
+					.render(budget)
+					.find((line) => stripAnsi(line).trim()) ?? this.toolName;
+			const text = truncateToWidth(`▸ ${status} ${call}${error} · ${suffix}`, available, "…");
+			const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
+			const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
+			return ["", theme.bg(color, line)];
+		}
 
 		if (this.hasRendererDefinition() && this.getRenderShell() === "self") {
 			const contentLines = this.selfRenderContainer.render(width);
@@ -258,6 +294,19 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
+		if (!this.expanded && event.type === "click" && event.button === "left" && event.y === 1) {
+			this.setExpanded(true);
+			return {
+				handled: true,
+				target: {
+					component: this,
+					originX: event.screenX - event.x,
+					originY: event.screenY - event.y,
+					width: event.width,
+					height: event.height,
+				},
+			};
+		}
 		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self") return super.handleMouse(event);
 		if (event.y <= 0 || event.y > this.selfRenderHeight) return undefined;
 		return this.selfRenderContainer.handleMouse({

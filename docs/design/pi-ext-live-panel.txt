@@ -1,0 +1,12 @@
+
+ Session
+ tmp
+
+
+ Todo · 1/1
+ ✓ #1 Verify native UI
+
+
+ Subagents
+ worker · completed
+ 0.0s · Task #1

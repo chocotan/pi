@@ -6,6 +6,7 @@ type RebindContext = {
 	unsubscribe?: () => void;
 	applyRuntimeSettings: () => void;
 	programStatus: { reset(): void };
+	turnClock: { reset(): void };
 	renderCurrentSessionState: () => void;
 	bindCurrentSessionExtensions: () => Promise<void>;
 	subscribeToAgent: () => void;
@@ -42,6 +43,7 @@ describe("overlapping startup and replacement session rebinds", () => {
 			session: startupSession,
 			applyRuntimeSettings: () => {},
 			programStatus: { reset: () => {} },
+			turnClock: { reset: vi.fn() },
 			renderCurrentSessionState: () => {},
 			bindCurrentSessionExtensions: () => {
 				bindCount += 1;

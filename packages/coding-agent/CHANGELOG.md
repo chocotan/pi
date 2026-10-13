@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added replaceable built-in Todo, isolated Subagent, and ask-user plugins, with session-owned task state, delegated execution, and structured TUI/RPC questions.
+- Added an extensible full-height sidebar with clickable task/agent details and a narrow-screen panel.
+- Added a round composer with model, thinking level, and a run clock, plus single-row token usage and a separate context row.
+
+### Changed
+
+- Changed the fork name to pi-ext and the default configuration/runtime root to `~/.pi-ext`, with shell-safe `PI_EXT_CODING_AGENT_DIR` and `PI_EXT_CODING_AGENT_SESSION_DIR` overrides.
+- Changed thinking and tool output to default to compact, expandable transcript rows.
+
 ## [1.2.0] - 2026-10-12
 
 ### New Features

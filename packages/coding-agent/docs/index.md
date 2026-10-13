@@ -1,4 +1,6 @@
-# Pi
+# Pi-ext
+
+See [Pi-ext built-in plugins and terminal features](pi-ext.md) for Todo, Subagents, structured questions, the sidebar, and the `~/.pi-ext` configuration directory.
 
 Pi is an extensible AI agent that works from your terminal. Give it a goal and a working folder, and it can inspect files, run commands, edit content, and work through multi-step tasks.
 

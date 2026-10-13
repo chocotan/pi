@@ -34,6 +34,16 @@ function createAssistantMessage(
 }
 
 describe("AssistantMessageComponent", () => {
+	test("hides thinking by default in one line while preserving click-to-expand", () => {
+		initTheme("dark");
+		const component = new AssistantMessageComponent(
+			createAssistantMessage([{ type: "thinking", thinking: "private reasoning\nsecond line" }]),
+		);
+		const lines = component.render(48).map(stripAnsi);
+		expect(lines.filter((line) => line.trim())).toHaveLength(1);
+		expect(lines.join("\n")).toContain("Thought");
+		expect(lines.join("\n")).not.toContain("private reasoning");
+	});
 	test("adds OSC 133 zone markers to assistant messages without tool calls", () => {
 		initTheme("dark");
 
@@ -70,7 +80,7 @@ describe("AssistantMessageComponent", () => {
 		);
 		const rendered = component.render(80).join("\n");
 
-		expect(rendered).toContain("Thinking...");
+		expect(rendered).toContain("Thought");
 		expect(rendered).toContain("Response was truncated before completion.");
 	});
 
@@ -88,7 +98,7 @@ describe("AssistantMessageComponent", () => {
 		);
 		const rendered = stripAnsi(component.render(80).join("\n"));
 
-		expect(rendered.match(/Thinking\.\.\./g)).toHaveLength(1);
+		expect(rendered.match(/Thought/g)).toHaveLength(1);
 		expect(rendered).toContain("answer");
 	});
 
@@ -100,6 +110,7 @@ describe("AssistantMessageComponent", () => {
 				{ type: "text", text: "answer" },
 				{ type: "thinking", thinking: "second reasoning" },
 			]),
+			false,
 		);
 		const width = 80;
 		const lines = component.render(width);
@@ -123,7 +134,7 @@ describe("AssistantMessageComponent", () => {
 
 		const collapsed = stripAnsi(component.render(width).join("\n"));
 		expect(collapsed).not.toContain("first reasoning");
-		expect(collapsed).toContain("Thinking...");
+		expect(collapsed).toContain("Thought");
 		expect(collapsed).toContain("second reasoning");
 	});
 

@@ -231,6 +231,22 @@
       "$ref": "#/$defs/KeybindingValue",
       "description": "Open model selector"
     },
+    "app.sidebar.toggle": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Toggle task and subagent sidebar"
+    },
+    "app.question.next": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Next questionnaire tab"
+    },
+    "app.question.previous": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Previous questionnaire tab"
+    },
+    "app.question.toggle": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Toggle questionnaire option"
+    },
     "app.tools.expand": {
       "$ref": "#/$defs/KeybindingValue",
       "description": "Toggle tool output"

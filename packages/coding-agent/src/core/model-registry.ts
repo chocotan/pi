@@ -57,6 +57,11 @@ export class ModelRegistry {
 		return this.runtime.refresh(options);
 	}
 
+	/** Share the configured model runtime with isolated plugin-owned sessions. */
+	getModelRuntime(): ModelRuntime {
+		return this.runtime;
+	}
+
 	getError(): string | undefined {
 		return this.runtime.getError();
 	}

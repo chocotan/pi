@@ -1,0 +1,32 @@
+                                                                                         │
+ Run the local UI smoke test.                                                            │ Session
+                                                                                         │ tmp
+                                                                                         │
+ ▸ Thought · 0.0s                                                                        │
+                                                                                         │ Todo · 1/1
+ ▸ Ran TaskCreate subject="Verify native UI"              · Took 0.0s · ctrl+o to expand │ ✓ #1 Verify native UI
+                                                                                         │
+ ▸ Ran TaskExecute task_ids=["1"]                         · Took 0.0s · ctrl+o to expand │
+                                                                                         │ Subagents
+ The local UI smoke test completed. No paid model calls were made.                       │ worker · completed
+                                                                                         │ 0.0s · Task #1
+                                                                                         │
+ [pi-ext.subagent-completion]                                                            │
+                                                                                         │
+ Subagent b0874102-deed-4479-927e-ee25c73866bc (worker) completed.                       │
+ Local child verification complete.                                                      │
+ Full session:                                                                           │
+ /tmp/pi-ext-ui-smoke-jrfcxo99/subagents/01a1352a-f8b9-76ba-a3f4-85ece3365d37/2026-10-13 │
+ T12-09-31-481Z_01a1352a-fa59-76ba-a3f4-85efef81bf8b.jsonl                               │
+                                                                                         │
+                                                                                         │
+ The local UI smoke test completed. No paid model calls were made.                       │
+                                                                                         │
+                                                                                         │
+                                                                                         │
+╭─ local · high───────────────────────────────────────────────────────────── Done 0.0s ─╮│
+│                                                                                       ││
+╰───────────────────────────────────────────────────────────────────────────────────────╯│
+/tmp · No Git                                                                            │
+↑8.3k ↓95 Cache 14k W8.3k CH96.6%                                                        │
+Context 5.1k/128k · 4.0% (auto)                                                          │

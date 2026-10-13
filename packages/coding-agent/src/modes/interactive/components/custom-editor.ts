@@ -1,10 +1,20 @@
-import { Editor, type EditorOptions, type EditorTheme, type TUI, visibleWidth } from "@earendil-works/pi-tui";
+import {
+	CURSOR_MARKER,
+	Editor,
+	type EditorOptions,
+	type EditorTheme,
+	type TUI,
+	type TuiMouseEvent,
+	truncateToWidth,
+	visibleWidth,
+} from "@earendil-works/pi-tui";
 import type { AppKeybinding, KeybindingsManager } from "../../../core/keybindings.ts";
 import type { StatusIndicator } from "./status-indicator.ts";
 
 export type CustomEditorOptions = EditorOptions & {
 	/** Render working, compaction, summarization, and retry status in the editor's top border. */
 	embedWorkingStatus?: boolean;
+	getChrome?: () => { model: string; thinking?: string; status: string };
 };
 
 /**
@@ -13,6 +23,8 @@ export type CustomEditorOptions = EditorOptions & {
 export class CustomEditor extends Editor {
 	private keybindings: KeybindingsManager;
 	private workingStatusIndicator: StatusIndicator | undefined;
+	private readonly getChrome: CustomEditorOptions["getChrome"];
+	private bottomBorder = "";
 	public readonly embedWorkingStatus: boolean;
 	public actionHandlers: Map<AppKeybinding, () => void> = new Map();
 
@@ -27,6 +39,7 @@ export class CustomEditor extends Editor {
 		super(tui, theme, options);
 		this.keybindings = keybindings;
 		this.embedWorkingStatus = options?.embedWorkingStatus ?? false;
+		this.getChrome = options?.getChrome;
 	}
 
 	setWorkingStatusIndicator(indicator: StatusIndicator | undefined): void {
@@ -34,47 +47,52 @@ export class CustomEditor extends Editor {
 	}
 
 	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
-		if (!this.embedWorkingStatus || !this.workingStatusIndicator || width <= 0) {
-			return super.renderTopBorder(width, hiddenLineCount);
+		const chrome = this.getChrome?.();
+		const indicator = this.embedWorkingStatus ? this.workingStatusIndicator : undefined;
+		if ((!chrome && !indicator) || width < 8) return super.renderTopBorder(width, hiddenLineCount);
+		const overflow = hiddenLineCount ? ` ↑${hiddenLineCount} ` : "";
+		let status = chrome?.status ?? "";
+		if (indicator) {
+			const text =
+				chrome && indicator.kind === "working"
+					? indicator.renderSpinnerInBorder(2)
+					: indicator.renderInBorder(Math.max(1, chrome ? Math.floor(width / 2) : width - 5));
+			status = [text, status].filter(Boolean).join(" ");
 		}
+		const suffix = chrome?.thinking ? ` · ${chrome.thinking}` : "";
+		const reserve = Math.min(width - 4, visibleWidth(suffix) + 4);
+		status = truncateToWidth(status, Math.max(0, width - reserve - visibleWidth(overflow) - 5), "");
+		const budget = Math.max(0, width - visibleWidth(status) - visibleWidth(overflow) - 5);
+		const model = truncateToWidth(chrome?.model ?? "", Math.max(0, budget - visibleWidth(suffix)), "…");
+		const label = truncateToWidth(model + suffix, budget, "");
+		const middle = Math.max(0, width - visibleWidth(label) - visibleWidth(overflow) - visibleWidth(status) - 5);
+		return this.borderColor(`─ ${label}${overflow}${"─".repeat(middle)} `) + status + this.borderColor(" ─");
+	}
 
-		let status = this.workingStatusIndicator.renderInBorder(Math.max(1, width - 5));
-		let statusWidth = visibleWidth(status);
-		if (statusWidth === 0) return super.renderTopBorder(width, hiddenLineCount);
+	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
+		this.bottomBorder = super.renderBottomBorder(width, hiddenLineCount);
+		return this.bottomBorder;
+	}
 
-		const overflowLabel = hiddenLineCount > 0 ? ` ↑ ${hiddenLineCount} more ` : undefined;
-		const overflowLabelWidth = overflowLabel ? visibleWidth(overflowLabel) : 0;
-		const overflowStart = Math.floor((width - overflowLabelWidth) / 2);
-		const canFitOverflow = () =>
-			overflowLabel !== undefined && overflowLabelWidth + 2 <= width && overflowStart - (3 + statusWidth + 1) >= 1;
+	override render(width: number): string[] {
+		if (width < 3)
+			return super.render(width).map((line) => {
+				const clipped = truncateToWidth(line, width, "");
+				return line.includes(CURSOR_MARKER) && !clipped.includes(CURSOR_MARKER) ? CURSOR_MARKER + clipped : clipped;
+			});
+		const lines = super.render(width - 2);
+		const bottom = lines.findIndex((line, index) => index > 0 && line === this.bottomBorder);
+		return lines.map((line, index) => {
+			if (index === 0) return this.borderColor("╭") + line + this.borderColor("╮");
+			if (index === bottom) return this.borderColor("╰") + line + this.borderColor("╯");
+			if (index < bottom) return truncateToWidth(this.borderColor("│") + line + this.borderColor("│"), width, "");
+			return ` ${line} `;
+		});
+	}
 
-		if (overflowLabel && !canFitOverflow()) {
-			status = this.workingStatusIndicator.renderSpinnerInBorder(width);
-			statusWidth = visibleWidth(status);
-		}
-
-		if (canFitOverflow()) {
-			const leftBlockWidth = 3 + statusWidth + 1;
-			return (
-				this.borderColor("── ") +
-				status +
-				this.borderColor(
-					` ${"─".repeat(overflowStart - leftBlockWidth)}${overflowLabel}${"─".repeat(width - overflowStart - overflowLabelWidth)}`,
-				)
-			);
-		}
-
-		if (width >= statusWidth + 5) {
-			return this.borderColor("── ") + status + this.borderColor(` ${"─".repeat(width - statusWidth - 4)}`);
-		}
-
-		status = this.workingStatusIndicator.renderSpinnerInBorder(width);
-		statusWidth = visibleWidth(status);
-		const prefixWidth = Math.min(3, Math.max(0, width - statusWidth));
-		return (
-			this.borderColor("─".repeat(prefixWidth)) +
-			status +
-			this.borderColor("─".repeat(Math.max(0, width - prefixWidth - statusWidth)))
+	override handleMouse(event: TuiMouseEvent): ReturnType<Editor["handleMouse"]> {
+		return super.handleMouse(
+			event.width < 3 ? event : { ...event, x: Math.max(0, event.x - 1), width: event.width - 2 },
 		);
 	}
 

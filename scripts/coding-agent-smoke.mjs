@@ -18,7 +18,7 @@ export function smokeTestCodingAgent(directory, runtime = process.execPath) {
 		LOCALAPPDATA: home,
 		XDG_CONFIG_HOME: home,
 		XDG_CACHE_HOME: home,
-		PI_CODING_AGENT_DIR: join(home, ".pi", "agent"),
+		PI_EXT_CODING_AGENT_DIR: join(home, ".pi-ext"),
 		PI_OFFLINE: "1",
 		PI_TELEMETRY: "0",
 	};

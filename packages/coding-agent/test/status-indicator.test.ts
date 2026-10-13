@@ -35,7 +35,7 @@ describe("status indicators", () => {
 		const indicator = new WorkingStatusIndicator(tui, "Working");
 		editor.setWorkingStatusIndicator(indicator);
 
-		expect(stripAnsi(editor.render(20)[0]!)).toBe("─".repeat(20));
+		expect(stripAnsi(editor.render(20)[0]!)).toBe(`╭${"─".repeat(18)}╮`);
 		const standaloneLine = indicator.render(20)[1]!;
 		expect(standaloneLine).toContain(theme.getFgAnsi("accent"));
 		expect(standaloneLine).toContain(theme.getFgAnsi("muted"));
@@ -57,9 +57,10 @@ describe("status indicators", () => {
 		editor.setWorkingStatusIndicator(indicator);
 
 		const topBorder = editor.render(20)[0]!;
-		expect(stripAnsi(topBorder)).toBe("── ⠋ Working ───────");
+		expect(stripAnsi(topBorder)).toContain("⠋ Working");
+		expect(stripAnsi(topBorder).startsWith("╭")).toBe(true);
 		expect(visibleWidth(topBorder)).toBe(20);
-		expect(topBorder.split(theme.getFgAnsi("thinkingHigh"))).toHaveLength(5);
+		expect(topBorder).toContain(theme.getFgAnsi("thinkingHigh"));
 		indicator.dispose();
 	});
 
@@ -81,7 +82,7 @@ describe("status indicators", () => {
 			for (const indicator of indicators) {
 				editor.setWorkingStatusIndicator(indicator);
 				const label = stripAnsi(indicator.render(120)[1]!).trim();
-				expect(stripAnsi(editor.render(120)[0]!)).toContain(`── ${label} `);
+				expect(stripAnsi(editor.render(120)[0]!)).toContain(label);
 				for (const width of [1, 4, 10, 20, 80, 120]) {
 					expect(visibleWidth(editor.render(width)[0]!)).toBe(width);
 				}
@@ -89,7 +90,7 @@ describe("status indicators", () => {
 			vi.advanceTimersByTime(1000);
 			expect(stripAnsi(editor.render(120)[0]!)).toContain("Retrying (1/3) in 2s");
 			editor.setWorkingStatusIndicator(undefined);
-			expect(stripAnsi(editor.render(120)[0]!)).toBe("─".repeat(120));
+			expect(stripAnsi(editor.render(120)[0]!)).toBe(`╭${"─".repeat(118)}╮`);
 		} finally {
 			for (const indicator of indicators) indicator.dispose();
 		}

@@ -183,7 +183,7 @@
     },
     "hideThinkingBlock": {
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "showCacheMissNotices": {
       "type": "boolean",
