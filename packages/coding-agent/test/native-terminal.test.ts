@@ -70,6 +70,44 @@ describe("native terminal layout", () => {
 		expect(panel.root.children[0].component).toBe(viewport.sidebar);
 		expect(panel.root.children[0].rect.width).toBe(80);
 	});
+	it("drags the sidebar divider with capture and keeps the main pane usable", async () => {
+		const terminal = new VirtualTerminal(120, 24);
+		const ui = new TuiAltScreen(terminal);
+		const viewport = createChatViewport({
+			document: new Text("Conversation", 0, 0),
+			pendingMessages: new Container(),
+			status: new Container(),
+			editor: new Text("Message", 0, 0),
+			footer: new Text("Directory and model", 0, 0),
+			sidebar: new Text("Usage\nTodo\nSubagents", 0, 0),
+			sidebarDivider: new Text(Array(24).fill("│").join("\n"), 0, 0),
+		});
+		ui.setLayoutRoot(viewport.root);
+		ui.start();
+		try {
+			await terminal.waitForRender();
+			terminal.sendInput("\x1b[<0;90;3M");
+			terminal.sendInput("\x1b[<32;70;3M");
+			terminal.sendInput("\x1b[<0;70;3m");
+			await terminal.waitForRender();
+			let frame = renderLayoutFrame(viewport.root, 120, 24, () => {});
+			expect(frame.root.children.find((box) => box.component === viewport.sidebar)?.rect.width).toBe(50);
+			terminal.sendInput("\x1b[<0;70;3M");
+			terminal.sendInput("\x1b[<32;1;3M");
+			terminal.sendInput("\x1b[<0;1;3m");
+			await terminal.waitForRender();
+			frame = renderLayoutFrame(viewport.root, 120, 24, () => {});
+			expect(frame.root.children[0].rect.width).toBe(48);
+			const smaller = renderLayoutFrame(viewport.root, 100, 24, () => {});
+			expect(smaller.root.children[0].rect.width).toBeGreaterThanOrEqual(48);
+			const narrow = renderLayoutFrame(viewport.root, 80, 24, () => {});
+			expect(narrow.root.children).toHaveLength(1);
+			expect(narrow.root.children[0].rect.width).toBe(80);
+		} finally {
+			ui.stop({ preserveScreen: true });
+		}
+	});
+
 	it("does not scroll the conversation when a contained sidebar reaches its end", async () => {
 		const terminal = new VirtualTerminal(120, 12);
 		const ui = new TuiAltScreen(terminal);

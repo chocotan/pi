@@ -139,6 +139,7 @@ describe("createInteractiveTui", () => {
 			ui: TUI;
 			fullscreenLayoutRoot: Component;
 			options: { tuiMode?: TuiMode };
+			footer: { setUsageInSidebar: (enabled: boolean) => void };
 			themeController: { rebindTui: () => void };
 			extensionTerminalInputSubscriptions: Set<never>;
 		};
@@ -152,6 +153,7 @@ describe("createInteractiveTui", () => {
 			ui: undefined as unknown as TUI,
 			fullscreenLayoutRoot: component,
 			options: { tuiMode: "regular" as TuiMode },
+			footer: { setUsageInSidebar: vi.fn() },
 			themeController: { rebindTui: () => {} },
 			extensionTerminalInputSubscriptions: new Set<never>(),
 		}) as SwitchContext;

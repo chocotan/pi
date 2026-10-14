@@ -1,4 +1,23 @@
-import { type Component, HStack, ScrollView, type ScrollViewScrollbar, VStack } from "@earendil-works/pi-tui";
+import {
+	type Component,
+	HStack,
+	MouseRegion,
+	ScrollView,
+	type ScrollViewScrollbar,
+	type StackChild,
+	VStack,
+} from "@earendil-works/pi-tui";
+
+class SidebarStack extends HStack {
+	private readonly sidebarIndex: number;
+	constructor(children: StackChild[], sidebarIndex: number) {
+		super(children);
+		this.sidebarIndex = sidebarIndex;
+	}
+	setSidebarWidth(width: number): void {
+		this.entries[this.sidebarIndex]!.basis = width;
+	}
+}
 
 export type SidebarMode = "auto" | "hidden" | "panel";
 
@@ -50,16 +69,47 @@ export function createChatViewport(options: ChatViewportOptions): ChatViewport {
 	if (!options.sidebar) return { transcript, root: main };
 	const sidebar = new ScrollView(options.sidebar, { overscroll: "contain", scrollbar: "auto" });
 	const mode = () => options.sidebarMode?.() ?? "auto";
+	let requestedWidth = 30;
+	let viewportWidth = 120;
+	let dragStart: { x: number; width: number } | undefined;
+	const actualWidth = () =>
+		Math.max(20, Math.min(requestedWidth, viewportWidth - 48 - (options.sidebarDivider ? 1 : 0)));
+	const divider = options.sidebarDivider
+		? new MouseRegion(options.sidebarDivider, (event) => {
+				if (event.type === "press" && event.button === "left") {
+					dragStart = { x: event.screenX, width: actualWidth() };
+					return { handled: true, capture: true };
+				}
+				if (!dragStart || (event.type !== "drag" && event.type !== "release")) return undefined;
+				requestedWidth = Math.max(
+					20,
+					Math.min(dragStart.width - (event.screenX - dragStart.x), viewportWidth - 49),
+				);
+				if (event.type === "release") dragStart = undefined;
+				return { handled: true, render: true };
+			})
+		: undefined;
 	const visible = (viewport: { width: number }) =>
 		mode() === "auto" && viewport.width >= 100 && (options.hasSidebarWidgets?.() ?? true);
-	return {
-		transcript,
-		sidebar,
-		root: new HStack([
-			{ component: main, basis: 0, grow: 1, minSize: 1, visible: () => mode() !== "panel" },
-			...(options.sidebarDivider ? [{ component: options.sidebarDivider, basis: 1, shrink: 0, visible }] : []),
-			{ component: sidebar, basis: 30, grow: 0, shrink: 0, visible },
-			{ component: sidebar, basis: 0, grow: 1, minSize: 1, visible: () => mode() === "panel" },
-		]),
-	};
+	const children: StackChild[] = [
+		{
+			component: main,
+			basis: 0,
+			grow: 1,
+			minSize: 1,
+			visible: (viewport) => {
+				viewportWidth = viewport.width;
+				root.setSidebarWidth(actualWidth());
+				return mode() !== "panel";
+			},
+		},
+		...(divider ? [{ component: divider, basis: 1, shrink: 0, visible }] : []),
+	];
+	const sidebarIndex = children.length;
+	children.push(
+		{ component: sidebar, basis: requestedWidth, grow: 0, shrink: 0, visible },
+		{ component: sidebar, basis: 0, grow: 1, minSize: 1, visible: () => mode() === "panel" },
+	);
+	const root = new SidebarStack(children, sidebarIndex);
+	return { transcript, sidebar, root };
 }

@@ -1,9 +1,10 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { AgentSession } from "../src/core/agent-session.ts";
+import type { ContextUsage } from "../src/core/extensions/types.ts";
 import type { ReadonlyFooterDataProvider } from "../src/core/footer-data-provider.ts";
 import { FooterComponent, formatCwdForFooter } from "../src/modes/interactive/components/footer.ts";
-import { initTheme } from "../src/modes/interactive/theme/theme.ts";
+import { initTheme, theme } from "../src/modes/interactive/theme/theme.ts";
 import { stripAnsi } from "../src/utils/ansi.ts";
 
 type AssistantUsage = {
@@ -25,6 +26,7 @@ function createSession(options: {
 	compactionUsage?: AssistantUsage;
 	toolUsage?: AssistantUsage;
 	usingSubscription?: boolean;
+	contextUsage?: ContextUsage;
 	routedModel?: { model: { id: string }; thinkingLevel?: string };
 }): AgentSession {
 	const usage = options.usage;
@@ -82,7 +84,7 @@ function createSession(options: {
 			getSessionName: () => options.sessionName,
 			getCwd: () => "/tmp/project",
 		},
-		getContextUsage: () => ({ tokens: 24_600, contextWindow: 200_000, percent: 12.3 }),
+		getContextUsage: () => options.contextUsage ?? { tokens: 24_600, contextWindow: 200_000, percent: 12.3 },
 		routedModel: options.routedModel,
 		modelRuntime: {
 			isUsingSubscription: () => options.usingSubscription ?? false,
@@ -234,8 +236,41 @@ describe("FooterComponent width handling", () => {
 		});
 		const footer = new FooterComponent(session, createFooterData(1));
 
-		const statsLine = stripAnsi(footer.render(120)[1]);
+		const statsLine = stripAnsi(footer.renderUsage(30).join("\n"));
 		expect(statsLine).toContain("CH25.0%");
+	});
+
+	it("right-aligns the colored model and thinking on the directory/branch row", () => {
+		const footer = new FooterComponent(
+			createSession({ sessionName: "", modelId: "gpt-6.1-sol", reasoning: true, thinkingLevel: "high" }),
+			createFooterData(1),
+		);
+		for (const width of [48, 80, 120]) {
+			const row = footer.render(width)[0];
+			expect(visibleWidth(row)).toBe(width);
+			expect(stripAnsi(row).endsWith("gpt-6.1-sol · high")).toBe(true);
+			expect(stripAnsi(row)).toContain("main");
+			expect(row).toContain(theme.getFgAnsi("muted"));
+			expect(row).toContain(theme.getFgAnsi("accent"));
+			expect(row).toContain(theme.getFgAnsi("thinkingHigh"));
+		}
+	});
+	it("groups Usage in the sidebar without repeating it in the footer", () => {
+		const footer = new FooterComponent(
+			createSession({
+				sessionName: "",
+				usage: { input: 5400000, output: 287000, cacheRead: 166000000, cacheWrite: 0, cost: { total: 0 } },
+				contextUsage: { tokens: 796000, contextWindow: 1000000, percent: 79.6 },
+			}),
+			createFooterData(1),
+		);
+		const usage = footer.renderUsage(30).map(stripAnsi).join("\n");
+		expect(usage).toContain("↑5.4M ↓287k");
+		expect(usage).toContain("R166M CH");
+		expect(usage).toContain("79.6%/1.0M (auto)");
+		expect(footer.render(80).map(stripAnsi).join("\n")).not.toContain("↑");
+		footer.setUsageInSidebar(false);
+		expect(footer.render(80).map(stripAnsi).join("\n")).toContain("↑5.4M");
 	});
 
 	it("marks Kimi Coding costs as subscription estimates", () => {

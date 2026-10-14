@@ -1,5 +1,5 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, sliceByColumn, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { AgentSession } from "../../../core/agent-session.ts";
 import { areExperimentalFeaturesEnabled } from "../../../core/experimental.ts";
 import type { ContextUsage } from "../../../core/extensions/types.ts";
@@ -35,11 +35,8 @@ export function formatUsageLine(totals: UsageTotals, hitRate: number | undefined
 	const input = formatTokens(totals.input);
 	const output = formatTokens(totals.output);
 	const cache = formatTokens(totals.cacheRead);
-	const writes = totals.cacheWrite ? ` W${formatTokens(totals.cacheWrite)}` : "";
 	const hit = hitRate === undefined ? "—" : `${hitRate.toFixed(1)}%`;
-	const full = `↑${input} ↓${output} Cache ${cache}${writes} CH${hit}`;
-	if (visibleWidth(full) <= width) return full;
-	const compact = `↑${input} ↓${output} R${cache}${writes} CH${hit}`;
+	const compact = `↑${input} ↓${output} R${cache} CH${hit}`;
 	if (visibleWidth(compact) <= width) return compact;
 	return truncateToWidth(compact.replaceAll(" ", ""), width, "…");
 }
@@ -76,6 +73,7 @@ interface SessionStats {
 export class FooterComponent implements Component {
 	private autoCompactEnabled = true;
 	private showModel = true;
+	private usageInSidebar = true;
 	private session: AgentSession;
 	private footerData: ReadonlyFooterDataProvider;
 	private sessionStats?: SessionStats;
@@ -87,6 +85,10 @@ export class FooterComponent implements Component {
 
 	setShowModel(show: boolean): void {
 		this.showModel = show;
+	}
+
+	setUsageInSidebar(enabled: boolean): void {
+		this.usageInSidebar = enabled;
 	}
 
 	setSession(session: AgentSession): void {
@@ -173,31 +175,60 @@ export class FooterComponent implements Component {
 		return this.sessionStats;
 	}
 
+	renderUsage(width: number): string[] {
+		const { usageTotals, latestCacheHitRate, contextUsage } = this.getSessionStats();
+		const window = contextUsage?.contextWindow ?? this.session.model?.contextWindow;
+		const percent = contextUsage?.percent;
+		const ratio = `${percent == null ? "—" : `${percent.toFixed(1)}%`}/${window ? formatTokens(window) : "—"}${this.autoCompactEnabled ? " (auto)" : ""}`;
+		const color = (percent ?? 0) > 90 ? "error" : (percent ?? 0) > 70 ? "warning" : "muted";
+		const hit = latestCacheHitRate === undefined ? "—" : `${latestCacheHitRate.toFixed(1)}%`;
+		return new Text(
+			[
+				theme.fg("accent", theme.bold("Usage")),
+				theme.fg("muted", `↑${formatTokens(usageTotals.input)} ↓${formatTokens(usageTotals.output)}`),
+				theme.fg("muted", `R${formatTokens(usageTotals.cacheRead)} CH${hit}`),
+				theme.fg(color, ratio),
+			].join("\n"),
+			1,
+			1,
+		).render(width);
+	}
+
 	render(width: number): string[] {
 		const state = this.session.state;
-		const { usageTotals, latestCacheHitRate, contextUsage } = this.getSessionStats();
-		let cwd = formatCwdForFooter(this.session.sessionManager.getCwd(), process.env.HOME || process.env.USERPROFILE);
-		const branch = this.footerData.getGitBranch();
-		cwd += ` · ${branch ?? "No Git"}`;
-		const name = this.session.sessionManager.getSessionName();
-		if (name) cwd += ` · ${name}`;
-		const window = contextUsage?.contextWindow ?? state.model?.contextWindow;
-		const tokens = contextUsage?.tokens;
-		const percent = contextUsage?.percent;
-		const context = `Context ${tokens == null ? "—" : formatTokens(tokens)}/${window ? formatTokens(window) : "—"} · ${percent == null ? "—" : `${percent.toFixed(1)}%`}${this.autoCompactEnabled ? " (auto)" : ""}`;
-		const color = (percent ?? 0) > 90 ? "error" : (percent ?? 0) > 70 ? "warning" : "dim";
-		const lines = [
-			truncateToWidth(theme.fg("dim", sanitizeStatusText(cwd)), width, "…"),
-			theme.fg("dim", formatUsageLine(usageTotals, latestCacheHitRate, width)),
-			truncateToWidth(theme.fg(color, context), width, "…"),
-		];
+		const { usageTotals } = this.getSessionStats();
+		const cwd = sanitizeStatusText(
+			formatCwdForFooter(this.session.sessionManager.getCwd(), process.env.HOME || process.env.USERPROFILE),
+		);
+		const level = state.model?.reasoning ? state.thinkingLevel || "off" : undefined;
+		const thinking = level ? theme.getThinkingBorderColor(level)(` · ${level}`) : "";
+		const rightBudget = this.showModel ? Math.max(0, width - Math.min(10, Math.floor(width / 3)) - 2) : 0;
+		const model = this.showModel
+			? truncateToWidth(state.model?.id ?? "No model", Math.max(0, rightBudget - visibleWidth(thinking)), "…")
+			: "";
+		const right = this.showModel ? theme.fg("text", theme.bold(model)) + thinking : "";
+		const leftBudget = Math.max(0, width - visibleWidth(right) - (right ? 2 : 0));
+		const branch = truncateToWidth(
+			sanitizeStatusText(this.footerData.getGitBranch() ?? "No Git"),
+			Math.min(Math.max(0, leftBudget - 6), Math.floor(leftBudget / 2)),
+			"…",
+		);
+		const branchPart = branch ? theme.fg("dim", " · ") + theme.fg("accent", branch) : "";
+		const pathBudget = Math.max(0, leftBudget - visibleWidth(branchPart));
+		const head = Math.max(0, Math.floor((pathBudget - 1) / 3));
+		const path =
+			visibleWidth(cwd) <= pathBudget
+				? cwd
+				: pathBudget <= 1
+					? "…".slice(0, pathBudget)
+					: `${sliceByColumn(cwd, 0, head)}…${sliceByColumn(cwd, Math.max(0, visibleWidth(cwd) - (pathBudget - head - 1)), pathBudget - head - 1)}`;
+		const left = theme.fg("muted", path) + branchPart;
+		const gap = " ".repeat(Math.max(0, width - visibleWidth(left) - visibleWidth(right)));
+		const lines = [truncateToWidth(left + gap + right, width, "")];
+		if (!this.usageInSidebar) lines.push(...this.renderUsage(width));
 		const details: string[] = [];
-		if (this.showModel) {
-			let model = state.model?.id ?? "No model";
-			if (state.model?.reasoning) model += ` · ${state.thinkingLevel || "off"}`;
-			if (this.footerData.getAvailableProviderCount() > 1 && state.model) model = `${state.model.provider}/${model}`;
-			details.push(model);
-		}
+		const name = this.session.sessionManager.getSessionName();
+		if (name) details.push(name);
 		const routed = this.session.routedModel;
 		if (routed) details.push(`→ ${routed.model.id}${routed.thinkingLevel ? ` · ${routed.thinkingLevel}` : ""}`);
 		const subscription = state.model

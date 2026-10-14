@@ -122,11 +122,10 @@ The schema, validation, normalization, response format, and RPC behavior are ada
 
 ## Terminal behavior
 
-- Full-height right sidebar in wide fullscreen terminals; `/sidebar` or `app.sidebar.toggle` toggles it.
+- Full-height right sidebar in wide fullscreen terminals; `/sidebar` or `app.sidebar.toggle` toggles it. Drag the vertical divider to resize it. The sidebar keeps at least 20 columns and the main pane keeps at least 48 columns; shrinking the terminal clamps the visible width.
 - Narrow terminals use a full-width task panel instead of squeezing the composer. Cancel closes the panel. Mouse clicks open the same task/agent detail actions.
-- Rounded input borders show model, thinking level, and current run status/time.
-- One token row: `↑332k ↓11k Cache 3.6M CH98.3%`. Cache reads are separate from input; `W` identifies reported cache writes. Shorter `R` labels are used when necessary; the row never wraps.
-- Context has its own row with used tokens, model limit, percentage, and `(auto)` when automatic compaction is enabled. Unknown values display `—`.
+- Rounded input borders show current run status/time. The directory and Git branch share one footer row with the model and thinking level right-aligned. Theme colors distinguish each field; long paths shorten before the model and level.
+- The sidebar Usage section groups `↑5.4M ↓287k`, `R166M CH100.0%`, and `79.6%/1.0M (auto)` on short rows. Cache reads are separate from input; full cache-write counts remain in `/session` details. Unknown values display `—`. Usage is not repeated in the fullscreen footer; regular mode retains a usage fallback.
 - Thinking and tool results default to collapsed rows. Click to expand, or use `app.thinking.toggle` / `app.tools.expand` for global controls.
 - User messages keep the theme's default user background.
 

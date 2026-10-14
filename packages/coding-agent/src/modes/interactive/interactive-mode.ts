@@ -656,8 +656,7 @@ export class InteractiveMode {
 			autocompleteMaxVisible,
 			embedWorkingStatus: true,
 			getChrome: () => ({
-				model: this.session.model?.id ?? "No model",
-				thinking: this.session.model?.reasoning ? this.session.thinkingLevel : undefined,
+				model: "",
 				status: theme.fg(
 					this.turnClock.status === "Failed"
 						? "error"
@@ -675,7 +674,7 @@ export class InteractiveMode {
 		this.editorContainer.addChild(this.editor as Component);
 		this.footerDataProvider = new FooterDataProvider(this.sessionManager.getCwd());
 		this.footer = new FooterComponent(this.session, this.footerDataProvider);
-		this.footer.setShowModel(false);
+		this.footer.setUsageInSidebar(tuiMode === "fullscreen");
 		this.footer.setAutoCompactEnabled(this.session.autoCompactionEnabled);
 		this.footerContainer = new Container();
 		this.footerContainer.addChild(this.footer);
@@ -944,6 +943,7 @@ export class InteractiveMode {
 		}
 		this.renderer = nextUi;
 		this.options.tuiMode = mode;
+		this.footer.setUsageInSidebar(mode === "fullscreen");
 		this.mountInteractiveTui(nextUi, components);
 		nextUi.invalidate();
 		nextUi.setFocus(focus);
@@ -996,7 +996,6 @@ export class InteractiveMode {
 			footer: this.footerContainer,
 			sidebar: this.widgetContainerSidebar,
 			sidebarMode: () => this.sidebarMode,
-			hasSidebarWidgets: () => this.extensionWidgetsSidebar.size > 0,
 			sidebarDivider: new ThemedText(
 				() => Array.from({ length: this.ui.terminal.rows }, () => theme.fg("borderMuted", "│")).join("\n"),
 				0,
@@ -2556,6 +2555,10 @@ export class InteractiveMode {
 				1,
 			),
 		);
+		this.widgetContainerSidebar.addChild({
+			render: (width) => this.footer.renderUsage(width),
+			invalidate: () => this.footer.invalidate(),
+		});
 		for (const widget of this.extensionWidgetsSidebar.values()) this.widgetContainerSidebar.addChild(widget);
 		this.ui.requestRender();
 	}
@@ -3004,7 +3007,6 @@ export class InteractiveMode {
 			this.editor = this.defaultEditor;
 		}
 
-		this.footer.setShowModel(this.editor !== this.defaultEditor);
 		this.editorContainer.addChild(this.editor as Component);
 		if (this.activeStatusIndicator) {
 			this.statusContainer.clear();
