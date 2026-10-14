@@ -260,8 +260,9 @@ describe("ToolExecutionComponent parity", () => {
 		vi.advanceTimersByTime(1_000);
 		component.invalidate();
 		expect(stripAnsi(component.render(120).join("\n"))).toBe(completed);
-		expect(running).toContain(`Elapsed ${formatted}`);
-		expect(completed).toContain(`Took ${formatted}`);
+		expect(running).toContain(formatted);
+		expect(completed).toContain(formatted);
+		expect(completed).not.toContain("Took");
 	});
 
 	// #10549
@@ -287,8 +288,8 @@ describe("ToolExecutionComponent parity", () => {
 			component.updateResult({ content: [], isError: false, durationMs: 4_200 }, false);
 			return stripAnsi(component.render(120).join("\n"));
 		};
-		expect(render(true)).toContain("Took 4.2s");
-		expect(render(false)).toContain("Took 4.2s");
+		expect(render(true)).toContain("4.2s");
+		expect(render(false)).toContain("4.2s");
 	});
 
 	test("does not duplicate built-in headers when passed the active built-in definition", () => {
@@ -513,7 +514,7 @@ describe("ToolExecutionComponent parity", () => {
 		expect(collapsed).toContain("custom_tool");
 		expect(collapsed).not.toContain("line-1");
 		expect(component.render(120).filter((line) => stripAnsi(line).trim())).toHaveLength(1);
-		expect(collapsed).toContain("to expand");
+		expect(collapsed).not.toContain("to expand");
 
 		component.setExpanded(true);
 		const expanded = stripAnsi(component.render(120).join("\n"));
@@ -577,6 +578,25 @@ describe("ToolExecutionComponent parity", () => {
 		expect(rendered).toContain(theme.fg("toolOutput", error));
 	});
 
+	test("uses colored icons instead of tool status words", () => {
+		const component = new ToolExecutionComponent("tool", "status", {}, {}, undefined, createFakeTui(), "/tmp");
+		let row = component.render(80)[1];
+		expect(stripAnsi(row)).toContain("▸ ◌ tool");
+		expect(row).toContain(theme.getFgAnsi("muted"));
+		component.markExecutionStarted();
+		row = component.render(80)[1];
+		expect(stripAnsi(row)).toMatch(/▸ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] tool/);
+		expect(row).toContain(theme.getFgAnsi("warning"));
+		component.updateResult({ content: [], isError: false, durationMs: 4200 });
+		row = component.render(80)[1];
+		expect(stripAnsi(row)).toContain("▸ ✓ tool · 4.2s");
+		expect(row).toContain(theme.getFgAnsi("success"));
+		component.updateResult({ content: [{ type: "text", text: "bad" }], isError: true });
+		row = component.render(80)[1];
+		expect(stripAnsi(row)).toContain("▸ ✗ tool");
+		expect(row).toContain(theme.getFgAnsi("error"));
+		expect(stripAnsi(row)).not.toMatch(/Queued|Running|Ran|Failed|Took/);
+	});
 	test("expands a collapsed tool result when clicked", () => {
 		const component = new ToolExecutionComponent(
 			"read",
@@ -610,7 +630,13 @@ describe("ToolExecutionComponent parity", () => {
 			clickCount: 1,
 		};
 		expect(component.handleMouse(event)?.handled).toBe(true);
-		expect(stripAnsi(component.render(width).join("\n"))).toContain("hidden content");
+		const expandedLines = component.render(width);
+		expect(stripAnsi(expandedLines[1])).toContain("▾ ✓ read notes.txt");
+		expect(stripAnsi(expandedLines.join("\n"))).toContain("hidden content");
+		expect(component.handleMouse({ ...event, y: 1, height: expandedLines.length })?.handled).toBe(true);
+		const collapsedLines = component.render(width);
+		expect(stripAnsi(collapsedLines[1])).toContain("▸ ✓ read notes.txt");
+		expect(stripAnsi(collapsedLines.join("\n"))).not.toContain("hidden content");
 	});
 
 	test("collapses ordinary read results until expanded", () => {
@@ -712,7 +738,7 @@ describe("ToolExecutionComponent parity", () => {
 		{ title: "SKILL.md", path: join(process.cwd(), "attio", "SKILL.md"), compact: "[skill] attio:120-329" },
 		{ title: "Pi documentation", path: getReadmePath(), compact: "read docs README.md:120-329" },
 	] as const) {
-		test(`shows the read line range in compact ${scenario.title} reads before the expand hint`, () => {
+		test(`shows the read line range in compact ${scenario.title} reads without a per-tool expand hint`, () => {
 			const component = new ToolExecutionComponent(
 				"read",
 				`tool-compact-range-${scenario.title}`,
@@ -725,7 +751,7 @@ describe("ToolExecutionComponent parity", () => {
 
 			const collapsed = stripAnsi(component.render(120).join("\n"));
 			expect(collapsed).toContain(scenario.compact);
-			expect(collapsed.indexOf(":120-329")).toBeLessThan(collapsed.indexOf("to expand"));
+			expect(collapsed).not.toContain("to expand");
 		});
 	}
 });

@@ -134,7 +134,7 @@ import { loadAllHighlightLanguages } from "../../utils/syntax-highlight.ts";
 import { ensureTool, type ToolStatus } from "../../utils/tools-manager.ts";
 import { checkForNewPiVersion, type LatestPiRelease } from "../../utils/version-check.ts";
 import { reportBug } from "./bug-report.ts";
-import { createChatViewport, type SidebarMode } from "./chat-viewport.ts";
+import { createChatViewport } from "./chat-viewport.ts";
 import { ArminComponent } from "./components/armin.ts";
 import { AssistantMessageComponent } from "./components/assistant-message.ts";
 import { BashExecutionComponent } from "./components/bash-execution.ts";
@@ -459,8 +459,6 @@ export class InteractiveMode {
 	private documentContainer: Container;
 	private transcriptScrollView: TuiLayouts.ScrollView | undefined;
 	private fullscreenLayoutRoot: Component | undefined;
-	private sidebarScrollView: (TuiLayouts.ScrollView & { handleInput?: (data: string) => void }) | undefined;
-	private sidebarMode: SidebarMode = "auto";
 	private readonly turnClock = new TurnClock();
 	private pendingMessagesContainer: Container;
 	private statusContainer: Container;
@@ -573,8 +571,6 @@ export class InteractiveMode {
 	// Extension widgets (components rendered above/below the editor)
 	private extensionWidgetsAbove = new Map<string, Component & { dispose?(): void }>();
 	private extensionWidgetsBelow = new Map<string, Component & { dispose?(): void }>();
-	private extensionWidgetsSidebar = new Map<string, Component & { dispose?(): void }>();
-	private readonly widgetContainerSidebar = new TuiLayouts.VStack();
 	private widgetContainerAbove!: Container;
 	private widgetContainerBelow!: Container;
 
@@ -643,6 +639,10 @@ export class InteractiveMode {
 		this.documentContainer.addChild(this.headerContainer);
 		this.documentContainer.addChild(this.loadedResourcesContainer);
 		this.documentContainer.addChild(this.chatContainer);
+		this.documentContainer.addChild({
+			render: (width) => this.renderToolExpansionHint(width),
+			invalidate: () => {},
+		});
 		this.pendingMessagesContainer = new Container();
 		this.statusContainer = new Container();
 		this.widgetContainerAbove = new Container();
@@ -674,7 +674,6 @@ export class InteractiveMode {
 		this.editorContainer.addChild(this.editor as Component);
 		this.footerDataProvider = new FooterDataProvider(this.sessionManager.getCwd());
 		this.footer = new FooterComponent(this.session, this.footerDataProvider);
-		this.footer.setUsageInSidebar(tuiMode === "fullscreen");
 		this.footer.setAutoCompactEnabled(this.session.autoCompactionEnabled);
 		this.footerContainer = new Container();
 		this.footerContainer.addChild(this.footer);
@@ -943,7 +942,6 @@ export class InteractiveMode {
 		}
 		this.renderer = nextUi;
 		this.options.tuiMode = mode;
-		this.footer.setUsageInSidebar(mode === "fullscreen");
 		this.mountInteractiveTui(nextUi, components);
 		nextUi.invalidate();
 		nextUi.setFocus(focus);
@@ -994,34 +992,11 @@ export class InteractiveMode {
 			editor: this.editorContainer,
 			widgetsBelow: this.widgetContainerBelow,
 			footer: this.footerContainer,
-			sidebar: this.widgetContainerSidebar,
-			sidebarMode: () => this.sidebarMode,
-			sidebarDivider: new ThemedText(
-				() => Array.from({ length: this.ui.terminal.rows }, () => theme.fg("borderMuted", "│")).join("\n"),
-				0,
-				0,
-			),
 			scrollbar: this.settingsManager.getFullscreenScrollbar(),
 			scrollbarTrackStyle: (text) => theme.fg("scrollbarTrack", text),
 			scrollbarThumbStyle: (text) => theme.fg("scrollbarThumb", text),
 		});
 		this.transcriptScrollView = viewport.transcript;
-		this.sidebarScrollView = viewport.sidebar;
-		if (this.sidebarScrollView)
-			this.sidebarScrollView.handleInput = (data) => {
-				if (
-					this.keybindings.matches(data, "app.sidebar.toggle") ||
-					this.keybindings.matches(data, "tui.select.cancel")
-				)
-					this.closeSidebarPanel();
-				else if (this.keybindings.matches(data, "tui.select.up")) this.sidebarScrollView?.scrollBy(-1);
-				else if (this.keybindings.matches(data, "tui.select.down")) this.sidebarScrollView?.scrollBy(1);
-				else if (this.keybindings.matches(data, "tui.select.pageUp"))
-					this.sidebarScrollView?.scrollBy(-Math.max(1, this.ui.terminal.rows - 2));
-				else if (this.keybindings.matches(data, "tui.select.pageDown"))
-					this.sidebarScrollView?.scrollBy(Math.max(1, this.ui.terminal.rows - 2));
-				this.ui.requestRender();
-			};
 		this.fullscreenLayoutRoot = viewport.root;
 		this.mountInteractiveTui(this.renderer, [
 			this.documentContainer,
@@ -2454,7 +2429,6 @@ export class InteractiveMode {
 
 		removeExisting(this.extensionWidgetsAbove);
 		removeExisting(this.extensionWidgetsBelow);
-		removeExisting(this.extensionWidgetsSidebar);
 
 		if (content === undefined) {
 			this.renderWidgets();
@@ -2478,12 +2452,7 @@ export class InteractiveMode {
 			component = content(this.ui, theme);
 		}
 
-		const targetMap =
-			placement === "sidebar"
-				? this.extensionWidgetsSidebar
-				: placement === "belowEditor"
-					? this.extensionWidgetsBelow
-					: this.extensionWidgetsAbove;
+		const targetMap = placement === "belowEditor" ? this.extensionWidgetsBelow : this.extensionWidgetsAbove;
 		targetMap.set(key, component);
 		this.renderWidgets();
 	}
@@ -2495,15 +2464,12 @@ export class InteractiveMode {
 		for (const widget of this.extensionWidgetsBelow.values()) {
 			widget.dispose?.();
 		}
-		for (const widget of this.extensionWidgetsSidebar.values()) widget.dispose?.();
 		this.extensionWidgetsAbove.clear();
 		this.extensionWidgetsBelow.clear();
-		this.extensionWidgetsSidebar.clear();
 		this.renderWidgets();
 	}
 
 	private resetExtensionUI(): void {
-		this.closeSidebarPanel();
 		if (this.extensionSelector) {
 			this.hideExtensionSelector();
 		}
@@ -2546,20 +2512,6 @@ export class InteractiveMode {
 		if (!this.widgetContainerAbove || !this.widgetContainerBelow) return;
 		this.renderWidgetContainer(this.widgetContainerAbove, this.extensionWidgetsAbove, true, true);
 		this.renderWidgetContainer(this.widgetContainerBelow, this.extensionWidgetsBelow, false, false);
-		this.widgetContainerSidebar.clear();
-		this.widgetContainerSidebar.addChild(
-			new ThemedText(
-				() =>
-					`${theme.fg("accent", theme.bold("Session"))}\n${theme.fg("muted", this.sessionManager.getSessionName() ?? path.basename(this.sessionManager.getCwd()))}`,
-				1,
-				1,
-			),
-		);
-		this.widgetContainerSidebar.addChild({
-			render: (width) => this.footer.renderUsage(width),
-			invalidate: () => this.footer.invalidate(),
-		});
-		for (const widget of this.extensionWidgetsSidebar.values()) this.widgetContainerSidebar.addChild(widget);
 		this.ui.requestRender();
 	}
 
@@ -2761,7 +2713,6 @@ export class InteractiveMode {
 		opts?: ExtensionUIDialogOptions,
 		blocked: BlockedStatus = { kind: "question", message: title },
 	): Promise<string | undefined> {
-		this.closeSidebarPanel();
 		return new Promise((resolve) => {
 			if (opts?.signal?.aborted) {
 				resolve(undefined);
@@ -2844,7 +2795,6 @@ export class InteractiveMode {
 		placeholder?: string,
 		opts?: ExtensionUIDialogOptions,
 	): Promise<string | undefined> {
-		this.closeSidebarPanel();
 		return new Promise((resolve) => {
 			if (opts?.signal?.aborted) {
 				resolve(undefined);
@@ -3060,11 +3010,12 @@ export class InteractiveMode {
 		return new Promise((resolve, reject) => {
 			let component: Component & { dispose?(): void };
 			let closed = false;
+			let overlayHandle: OverlayHandle | undefined;
 
 			const close = (result: T) => {
 				if (closed) return;
 				closed = true;
-				if (isOverlay) this.ui.hideOverlay();
+				if (isOverlay) overlayHandle?.hide();
 				else restoreEditor();
 				// Note: both branches above already call requestRender
 				resolve(result);
@@ -3094,6 +3045,7 @@ export class InteractiveMode {
 							return w ? { width: w } : undefined;
 						};
 						const handle = this.ui.showOverlay(component, resolveOptions());
+						overlayHandle = handle;
 						// Expose handle to caller for visibility control
 						options?.onHandle?.(handle);
 					} else {
@@ -3133,26 +3085,6 @@ export class InteractiveMode {
 	// =========================================================================
 	// Key Handlers
 	// =========================================================================
-
-	private closeSidebarPanel(): void {
-		if (this.sidebarMode !== "panel") return;
-		this.sidebarMode = "auto";
-		this.ui.setFocus(this.editor);
-		this.ui.requestRender();
-	}
-
-	private toggleSidebar(): void {
-		if (this.sidebarMode === "panel") {
-			this.closeSidebarPanel();
-			return;
-		}
-		if (this.ui.terminal.columns < 100 || this.options.tuiMode === "regular") {
-			if (this.options.tuiMode === "regular" && !this.switchTuiMode("fullscreen")) return;
-			this.sidebarMode = "panel";
-			this.ui.setFocus(this.sidebarScrollView ?? this.editor);
-		} else this.sidebarMode = this.sidebarMode === "hidden" ? "auto" : "hidden";
-		this.ui.requestRender();
-	}
 
 	private setupKeyHandlers(): void {
 		// Set up handlers on defaultEditor - they use this.editor for text access
@@ -3196,7 +3128,6 @@ export class InteractiveMode {
 		// Global debug handler on TUI (works regardless of focus)
 		this.ui.onDebug = () => this.handleDebugCommand();
 		this.defaultEditor.onAction("app.model.select", () => this.showModelSelector());
-		this.defaultEditor.onAction("app.sidebar.toggle", () => this.toggleSidebar());
 		this.defaultEditor.onAction("app.tools.expand", () => this.toggleToolOutputExpansion());
 		this.defaultEditor.onAction("app.thinking.toggle", () => this.toggleThinkingBlockVisibility());
 		this.defaultEditor.onAction("app.editor.external", () => void this.handleOpenExternalEditor());
@@ -3293,11 +3224,6 @@ export class InteractiveMode {
 			if (!text) return;
 
 			// Handle commands
-			if (text === "/sidebar") {
-				this.editor.setText("");
-				this.toggleSidebar();
-				return;
-			}
 			if (text === "/settings") {
 				this.showSettingsSelector();
 				this.editor.setText("");
@@ -4673,6 +4599,14 @@ export class InteractiveMode {
 		}
 	}
 
+	private renderToolExpansionHint(width: number): string[] {
+		if (this.toolOutputExpanded) return [];
+		const hasTool = this.chatContainer.children.some(
+			(child) => child instanceof ToolExecutionComponent && child.render(width).length > 0,
+		);
+		return hasTool ? new Text(keyHint("app.tools.expand", "to expand"), this.outputPad, 0).render(width) : [];
+	}
+
 	private toggleToolOutputExpansion(): void {
 		this.setToolsExpanded(!this.toolOutputExpanded);
 	}
@@ -5003,7 +4937,6 @@ export class InteractiveMode {
 	private showSelector(
 		create: (done: () => void) => { component: Component; focus: Component; dispose?: () => void },
 	): void {
-		this.closeSidebarPanel();
 		const token = {};
 		let dispose: (() => void) | undefined;
 		const done = () => {

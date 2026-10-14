@@ -60,6 +60,11 @@ export class CustomEditor extends Editor {
 			status = [text, status].filter(Boolean).join(" ");
 		}
 		const suffix = chrome?.thinking ? ` · ${chrome.thinking}` : "";
+		if (!chrome?.model && !suffix) {
+			status = truncateToWidth(status, Math.max(0, width - visibleWidth(overflow) - 3), "");
+			const fill = Math.max(0, width - visibleWidth(status) - visibleWidth(overflow) - 3);
+			return this.borderColor("─ ") + status + this.borderColor(` ${overflow}${"─".repeat(fill)}`);
+		}
 		const reserve = Math.min(width - 4, visibleWidth(suffix) + 4);
 		status = truncateToWidth(status, Math.max(0, width - reserve - visibleWidth(overflow) - 5), "");
 		const budget = Math.max(0, width - visibleWidth(status) - visibleWidth(overflow) - 5);

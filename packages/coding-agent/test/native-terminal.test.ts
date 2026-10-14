@@ -1,11 +1,9 @@
-import { Container, CURSOR_MARKER, Text, type TUI, TuiAltScreen, visibleWidth } from "@earendil-works/pi-tui";
+import { Container, CURSOR_MARKER, Text, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { renderLayoutFrame } from "../../tui/src/layout.ts";
-import { VirtualTerminal } from "../../tui/test/virtual-terminal.ts";
 import { KeybindingsManager } from "../src/core/keybindings.ts";
-import { createChatViewport, type SidebarMode } from "../src/modes/interactive/chat-viewport.ts";
+import { createChatViewport } from "../src/modes/interactive/chat-viewport.ts";
 import { CustomEditor } from "../src/modes/interactive/components/custom-editor.ts";
-import { formatUsageLine } from "../src/modes/interactive/components/footer.ts";
 import { getEditorTheme, initTheme } from "../src/modes/interactive/theme/theme.ts";
 import { TurnClock } from "../src/modes/interactive/turn-clock.ts";
 import { stripAnsi } from "../src/utils/ansi.ts";
@@ -32,104 +30,32 @@ describe("native terminal layout", () => {
 			}
 		}
 	});
-	it("keeps token categories on one row at standard narrow widths", () => {
-		for (const width of [48, 80, 120]) {
-			const line = formatUsageLine(
-				{ input: 332000, output: 11000, cacheRead: 3600000, cacheWrite: 123000, cost: 0 },
-				99.5,
-				width,
-			);
-			expect(line).not.toContain("\n");
-			expect(line).toContain("↑");
-			expect(line).toContain("↓");
-			expect(line).toContain("CH99.5%");
-			expect(visibleWidth(line)).toBeLessThanOrEqual(width);
-		}
-	});
-	it("uses a full-height sidebar and a full-width panel on narrow screens", () => {
-		let mode: SidebarMode = "auto";
+	it.each(["Ready", "Running 12.4s", "Done 12.4s", "Stopped 12.4s", "Failed 12.4s"])(
+		"left-aligns %s without overflowing narrow borders",
+		(status) => {
+			const tui = { terminal: { rows: 12 }, requestRender: vi.fn() } as unknown as TUI;
+			const editor = new CustomEditor(tui, getEditorTheme(), new KeybindingsManager(), {
+				getChrome: () => ({ model: "", status }),
+			});
+			for (const width of [1, 2, 4, 10, 20, 48, 120]) {
+				const line = editor.render(width)[0];
+				expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+				if (width >= 20) expect(stripAnsi(line).startsWith(`╭─ ${status}`)).toBe(true);
+			}
+		},
+	);
+	it.each([40, 80, 120, 180])("uses the full %s-column width for the conversation and input dock", (width) => {
 		const viewport = createChatViewport({
 			document: new Text("Conversation", 0, 0),
 			pendingMessages: new Container(),
 			status: new Container(),
+			widgetsAbove: new Text("Subagents 2", 0, 0),
 			editor: new Text("Message", 0, 0),
 			footer: new Text("Tokens", 0, 0),
-			sidebar: new Text("Todo\nSubagents", 0, 0),
-			sidebarMode: () => mode,
 		});
-		const wide = renderLayoutFrame(viewport.root, 120, 24, () => {});
-		const side = wide.root.children.find((box) => box.component === viewport.sidebar)!;
-		expect(side.rect).toMatchObject({ y: 0, height: 24, width: 30 });
-		expect(side.rect.x).toBe(90);
-		const narrow = renderLayoutFrame(viewport.root, 80, 24, () => {});
-		expect(narrow.root.children).toHaveLength(1);
-		expect(narrow.root.children[0].rect.width).toBe(80);
-		mode = "panel";
-		const panel = renderLayoutFrame(viewport.root, 80, 24, () => {});
-		expect(panel.root.children).toHaveLength(1);
-		expect(panel.root.children[0].component).toBe(viewport.sidebar);
-		expect(panel.root.children[0].rect.width).toBe(80);
-	});
-	it("drags the sidebar divider with capture and keeps the main pane usable", async () => {
-		const terminal = new VirtualTerminal(120, 24);
-		const ui = new TuiAltScreen(terminal);
-		const viewport = createChatViewport({
-			document: new Text("Conversation", 0, 0),
-			pendingMessages: new Container(),
-			status: new Container(),
-			editor: new Text("Message", 0, 0),
-			footer: new Text("Directory and model", 0, 0),
-			sidebar: new Text("Usage\nTodo\nSubagents", 0, 0),
-			sidebarDivider: new Text(Array(24).fill("│").join("\n"), 0, 0),
-		});
-		ui.setLayoutRoot(viewport.root);
-		ui.start();
-		try {
-			await terminal.waitForRender();
-			terminal.sendInput("\x1b[<0;90;3M");
-			terminal.sendInput("\x1b[<32;70;3M");
-			terminal.sendInput("\x1b[<0;70;3m");
-			await terminal.waitForRender();
-			let frame = renderLayoutFrame(viewport.root, 120, 24, () => {});
-			expect(frame.root.children.find((box) => box.component === viewport.sidebar)?.rect.width).toBe(50);
-			terminal.sendInput("\x1b[<0;70;3M");
-			terminal.sendInput("\x1b[<32;1;3M");
-			terminal.sendInput("\x1b[<0;1;3m");
-			await terminal.waitForRender();
-			frame = renderLayoutFrame(viewport.root, 120, 24, () => {});
-			expect(frame.root.children[0].rect.width).toBe(48);
-			const smaller = renderLayoutFrame(viewport.root, 100, 24, () => {});
-			expect(smaller.root.children[0].rect.width).toBeGreaterThanOrEqual(48);
-			const narrow = renderLayoutFrame(viewport.root, 80, 24, () => {});
-			expect(narrow.root.children).toHaveLength(1);
-			expect(narrow.root.children[0].rect.width).toBe(80);
-		} finally {
-			ui.stop({ preserveScreen: true });
-		}
-	});
-
-	it("does not scroll the conversation when a contained sidebar reaches its end", async () => {
-		const terminal = new VirtualTerminal(120, 12);
-		const ui = new TuiAltScreen(terminal);
-		const viewport = createChatViewport({
-			document: new Text(Array.from({ length: 30 }, (_, index) => `line ${index}`).join("\n"), 0, 0),
-			pendingMessages: new Container(),
-			status: new Container(),
-			editor: new Text("Message", 0, 0),
-			footer: new Text("Tokens", 0, 0),
-			sidebar: new Text("Todo", 0, 0),
-		});
-		ui.setLayoutRoot(viewport.root);
-		ui.start();
-		try {
-			await terminal.waitForRender();
-			const before = viewport.transcript.scrollTop;
-			terminal.sendInput("\x1b[<64;100;3M");
-			await terminal.waitForRender();
-			expect(viewport.transcript.scrollTop).toBe(before);
-		} finally {
-			ui.stop({ preserveScreen: true });
-		}
+		const frame = renderLayoutFrame(viewport.root, width, 24, () => {});
+		expect(frame.root.children).toHaveLength(2);
+		expect(frame.root.children.every((box) => box.rect.x === 0 && box.rect.width === width)).toBe(true);
 	});
 	it("keeps one elapsed clock through retries and clears its timer", () => {
 		vi.useFakeTimers();

@@ -121,10 +121,11 @@ describe("codemode renderer", () => {
 		component.markExecutionStarted();
 		component.updateResult({ content: [], details: { calls: [] }, isError: false }, true);
 		vi.advanceTimersByTime(3_000);
-		expect(text()).toContain("Elapsed 3.0s");
+		expect(text()).toContain("3.0s");
 
 		component.updateResult({ content: [], details: { calls: [] }, isError: false, durationMs: 5_100 }, false);
-		expect(text()).toContain("Took 5.1s");
+		expect(text()).toContain("5.1s");
+		expect(text()).not.toContain("Took");
 		expect(text()).not.toContain("Elapsed");
 	});
 });

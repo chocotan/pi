@@ -10,7 +10,7 @@ import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } 
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import { Text } from "@earendil-works/pi-tui";
 import { getReadmePath } from "../../../config.ts";
-import { keyHint, keyText } from "../../../modes/interactive/components/keybinding-hints.ts";
+import { keyHint } from "../../../modes/interactive/components/keybinding-hints.ts";
 import { getLanguageFromPath, highlightCode, type Theme } from "../../../modes/interactive/theme/theme.ts";
 import { formatPathRelativeToCwdOrAbsolute } from "../../../utils/paths.ts";
 import type { ToolDefinition, ToolRenderResultOptions } from "../../extensions/types.ts";
@@ -91,13 +91,11 @@ function formatCompactReadCall(
 	args: ReadRenderArgs | undefined,
 	theme: Theme,
 ): string {
-	const expandHint = theme.fg("dim", ` (${keyText("app.tools.expand")} to expand)`);
 	if (classification.kind === "skill") {
 		return (
 			theme.fg("customMessageLabel", `\x1b[1m[skill]\x1b[22m `) +
 			theme.fg("customMessageText", classification.label) +
-			formatReadLineRange(args, theme) +
-			expandHint
+			formatReadLineRange(args, theme)
 		);
 	}
 
@@ -105,8 +103,7 @@ function formatCompactReadCall(
 		theme.fg("toolTitle", theme.bold(`read ${classification.kind}`)) +
 		" " +
 		theme.fg("accent", classification.label) +
-		formatReadLineRange(args, theme) +
-		expandHint
+		formatReadLineRange(args, theme)
 	);
 }
 function formatReadResult(

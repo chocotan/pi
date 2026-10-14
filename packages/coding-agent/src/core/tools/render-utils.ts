@@ -126,9 +126,8 @@ export function startToolTimer(context: ToolRenderContext<ToolTimerState>): void
 }
 
 /**
- * The row's timing line, from `renderResult`: `Elapsed 4.2s` while the result is partial, redrawn
- * every second, and `Took 4.2s` once it is final. Undefined when the row has no start time and no
- * recorded duration.
+ * The row's elapsed or final duration, redrawn every second while partial. Undefined when
+ * the row has no start time and no recorded duration.
  */
 export function toolTimerText(context: ToolRenderContext<ToolTimerState>, isPartial: boolean): string | undefined {
 	const state = context.state;
@@ -144,10 +143,10 @@ export function toolTimerText(context: ToolRenderContext<ToolTimerState>, isPart
 	}
 	// A final result's recorded duration wins: it is monotonic and survives reloads. The renderer's own clock is the
 	// fallback for live progress and for results stored without one.
-	if (!isPartial && context.durationMs !== undefined) return `Took ${formatToolDuration(context.durationMs)}`;
+	if (!isPartial && context.durationMs !== undefined) return formatToolDuration(context.durationMs);
 	if (state.startedAt === undefined) return undefined;
 	const endTime = state.endedAt ?? Date.now();
-	return `${isPartial ? "Elapsed" : "Took"} ${formatToolDuration(endTime - state.startedAt)}`;
+	return formatToolDuration(endTime - state.startedAt);
 }
 
 export function invalidArgText(theme: Theme): string {

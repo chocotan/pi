@@ -4,7 +4,7 @@ import type { AgentSession } from "../src/core/agent-session.ts";
 import type { ContextUsage } from "../src/core/extensions/types.ts";
 import type { ReadonlyFooterDataProvider } from "../src/core/footer-data-provider.ts";
 import { FooterComponent, formatCwdForFooter } from "../src/modes/interactive/components/footer.ts";
-import { initTheme, theme } from "../src/modes/interactive/theme/theme.ts";
+import { initTheme } from "../src/modes/interactive/theme/theme.ts";
 import { stripAnsi } from "../src/utils/ansi.ts";
 
 type AssistantUsage = {
@@ -171,8 +171,8 @@ describe("FooterComponent width handling", () => {
 
 		const statsLine = stripAnsi(footer.render(120).join("\n"));
 
-		expect(statsLine).toContain("auto · high");
-		expect(statsLine).toContain("→ gpt-5.6-luna · medium");
+		expect(statsLine).toContain("auto • high");
+		expect(statsLine).toContain("→ gpt-5.6-luna • medium");
 	});
 
 	it("includes summary and tool result usage in the total cost", () => {
@@ -236,26 +236,33 @@ describe("FooterComponent width handling", () => {
 		});
 		const footer = new FooterComponent(session, createFooterData(1));
 
-		const statsLine = stripAnsi(footer.renderUsage(30).join("\n"));
+		const statsLine = stripAnsi(footer.render(120).join("\n"));
 		expect(statsLine).toContain("CH25.0%");
 	});
 
-	it("right-aligns the colored model and thinking on the directory/branch row", () => {
+	it("right-aligns the native model and thinking on the statistics row", () => {
 		const footer = new FooterComponent(
 			createSession({ sessionName: "", modelId: "gpt-6.1-sol", reasoning: true, thinkingLevel: "high" }),
 			createFooterData(1),
 		);
 		for (const width of [48, 80, 120]) {
-			const row = footer.render(width)[0];
-			expect(visibleWidth(row)).toBe(width);
-			expect(stripAnsi(row).endsWith("gpt-6.1-sol · high")).toBe(true);
-			expect(stripAnsi(row)).toContain("main");
-			expect(row).toContain(theme.getFgAnsi("muted"));
-			expect(row).toContain(theme.getFgAnsi("accent"));
-			expect(row).toContain(theme.getFgAnsi("thinkingHigh"));
+			const rows = footer.render(width).map(stripAnsi);
+			expect(visibleWidth(rows[1])).toBe(width);
+			expect(rows[1].endsWith("gpt-6.1-sol • high")).toBe(true);
+			expect(rows[0]).toContain("main");
 		}
 	});
-	it("groups Usage in the sidebar without repeating it in the footer", () => {
+	it("omits the Git placeholder when the directory is not a repository", () => {
+		const footer = new FooterComponent(createSession({ sessionName: "" }), {
+			...createFooterData(1),
+			getGitBranch: () => null,
+		});
+		const line = stripAnsi(footer.render(80)[0]);
+		expect(line).toContain("/tmp/project");
+		expect(line).not.toContain("No Git");
+		expect(line).not.toContain(" · ");
+	});
+	it("keeps token and context statistics in the native footer", () => {
 		const footer = new FooterComponent(
 			createSession({
 				sessionName: "",
@@ -264,13 +271,10 @@ describe("FooterComponent width handling", () => {
 			}),
 			createFooterData(1),
 		);
-		const usage = footer.renderUsage(30).map(stripAnsi).join("\n");
+		const usage = footer.render(120).map(stripAnsi).join("\n");
 		expect(usage).toContain("↑5.4M ↓287k");
 		expect(usage).toContain("R166M CH");
 		expect(usage).toContain("79.6%/1.0M (auto)");
-		expect(footer.render(80).map(stripAnsi).join("\n")).not.toContain("↑");
-		footer.setUsageInSidebar(false);
-		expect(footer.render(80).map(stripAnsi).join("\n")).toContain("↑5.4M");
 	});
 
 	it("marks Kimi Coding costs as subscription estimates", () => {

@@ -6,6 +6,7 @@ import {
 	Image,
 	MouseRegion,
 	Spacer,
+	sliceByColumn,
 	Text,
 	type TUI,
 	type TuiMouseEvent,
@@ -28,6 +29,7 @@ import { theme } from "../theme/theme.ts";
 import { keyHint } from "./keybinding-hints.ts";
 
 const FALLBACK_PREVIEW_LINES = 10;
+const TOOL_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export interface ToolExecutionOptions {
 	showImages?: boolean;
@@ -231,6 +233,37 @@ export class ToolExecutionComponent extends Container {
 		this.updateDisplay();
 	}
 
+	dispose(): void {
+		toolTimerText(this.getRenderContext(undefined), false);
+	}
+
+	private renderHeader(width: number): string {
+		const pad = Math.min(this.outputPad, Math.max(0, Math.floor((width - 1) / 2)));
+		const available = Math.max(1, width - 2 * pad);
+		const status = this.result?.isError
+			? theme.fg("error", "✗")
+			: this.isPartial
+				? this.executionStarted
+					? theme.fg("warning", TOOL_SPINNER_FRAMES[Math.floor(Date.now() / 80) % TOOL_SPINNER_FRAMES.length])
+					: theme.fg("muted", "◌")
+				: theme.fg("success", "✓");
+		const timing = toolTimerText(this.getRenderContext(undefined), this.isPartial);
+		const suffix = timing ? ` · ${timing}` : "";
+		const error = this.result?.isError ? ` · ${theme.fg("toolOutput", this.getTextOutput().split("\n")[0])}` : "";
+		const budget = Math.max(1, available - visibleWidth(status) - 3 - visibleWidth(suffix) - visibleWidth(error));
+		const renderedCall =
+			(this.callRendererComponent ?? this.createCallFallback())
+				.render(available)
+				.find((line) => stripAnsi(line).trim()) ?? this.toolName;
+		const plainCall = stripAnsi(renderedCall);
+		const leading = visibleWidth(plainCall) - visibleWidth(plainCall.trimStart());
+		const call = truncateToWidth(sliceByColumn(renderedCall, leading, visibleWidth(plainCall.trim())), budget, "…");
+		const text = truncateToWidth(`${this.expanded ? "▾" : "▸"} ${status} ${call}${error}${suffix}`, available, "…");
+		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
+		const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
+		return theme.bg(color, line);
+	}
+
 	override render(width: number): string[] {
 		if (this.hideComponent) {
 			return [];
@@ -242,27 +275,7 @@ export class ToolExecutionComponent extends Container {
 				this.imageComponents.length === 0
 			)
 				return [];
-			const pad = Math.min(this.outputPad, Math.max(0, Math.floor((width - 1) / 2)));
-			const available = Math.max(1, width - 2 * pad);
-			const status = this.result?.isError
-				? "Failed"
-				: this.isPartial
-					? this.executionStarted
-						? "Running"
-						: "Queued"
-					: "Ran";
-			const timing = toolTimerText(this.getRenderContext(undefined), this.isPartial);
-			const suffix = [timing, keyHint("app.tools.expand", "to expand")].filter(Boolean).join(" · ");
-			const error = this.result?.isError ? ` · ${theme.fg("toolOutput", this.getTextOutput().split("\n")[0])}` : "";
-			const budget = Math.max(1, available - status.length - 3 - visibleWidth(suffix) - visibleWidth(error) - 3);
-			const call =
-				(this.callRendererComponent ?? this.createCallFallback())
-					.render(budget)
-					.find((line) => stripAnsi(line).trim()) ?? this.toolName;
-			const text = truncateToWidth(`▸ ${status} ${call}${error} · ${suffix}`, available, "…");
-			const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
-			const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
-			return ["", theme.bg(color, line)];
+			return ["", this.renderHeader(width)];
 		}
 
 		if (this.hasRendererDefinition() && this.getRenderShell() === "self") {
@@ -272,9 +285,8 @@ export class ToolExecutionComponent extends Container {
 				return [];
 			}
 
-			const lines: string[] = [];
+			const lines: string[] = ["", this.renderHeader(width)];
 			if (contentLines.length > 0) {
-				lines.push("");
 				lines.push(...contentLines);
 			}
 			for (let i = 0; i < this.imageComponents.length; i++) {
@@ -290,14 +302,15 @@ export class ToolExecutionComponent extends Container {
 			return lines;
 		}
 
-		return super.render(width);
+		return ["", this.renderHeader(width), ...super.render(width).slice(1)];
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
-		if (!this.expanded && event.type === "click" && event.button === "left" && event.y === 1) {
-			this.setExpanded(true);
+		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === 1) {
+			if (event.type === "click") this.setExpanded(!this.expanded);
 			return {
 				handled: true,
+				render: event.type === "click",
 				target: {
 					component: this,
 					originX: event.screenX - event.x,
@@ -307,11 +320,13 @@ export class ToolExecutionComponent extends Container {
 				},
 			};
 		}
-		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self") return super.handleMouse(event);
-		if (event.y <= 0 || event.y > this.selfRenderHeight) return undefined;
+		if (!this.expanded || event.y < 2) return undefined;
+		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self")
+			return super.handleMouse({ ...event, y: event.y - 1, height: event.height - 1 });
+		if (event.y >= this.selfRenderHeight + 2) return undefined;
 		return this.selfRenderContainer.handleMouse({
 			...event,
-			y: event.y - 1,
+			y: event.y - 2,
 			height: this.selfRenderHeight,
 		});
 	}

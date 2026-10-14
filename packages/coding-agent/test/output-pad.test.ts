@@ -89,7 +89,7 @@ describe("outputPad", () => {
 		if (component instanceof ToolExecutionComponent) {
 			const compactLines = renderLines(component);
 			expect(compactLines).toHaveLength(1);
-			expect(compactLines[0]).toContain("to expand");
+			expect(compactLines[0]).not.toContain("to expand");
 			component.setExpanded(true);
 		}
 		const lines = renderLines(component);

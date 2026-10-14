@@ -7,6 +7,7 @@ import {
 	fauxToolCall,
 	getSystemMessageText,
 } from "@earendil-works/pi-ai";
+import type { TUI } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import type { EventBus } from "../../src/core/event-bus.ts";
 import { SessionManager } from "../../src/core/session-manager.ts";
@@ -18,7 +19,9 @@ import tasksPlugin, {
 	type TaskState,
 	updateTask,
 } from "../../src/extensions/tasks/index.ts";
+import { initTheme, theme } from "../../src/modes/interactive/theme/theme.ts";
 import { raceWithAbortSignal } from "../../src/utils/abort.ts";
+import { stripAnsi } from "../../src/utils/ansi.ts";
 import { createHarness, createTestUiContext, getToolResult } from "./harness.ts";
 
 const task = (id: string, status: TaskRecord["status"] = "pending"): TaskRecord => ({
@@ -92,14 +95,18 @@ describe("native tasks plugin", () => {
 		}
 	});
 
-	it("registers usable CRUD tools and sidebar widgets", async () => {
+	it("registers usable CRUD tools without duplicating Todo in composer widgets", async () => {
 		const harness = await createHarness({ extensionFactories: [tasksPlugin] });
 		const setWidget = vi.fn();
 		try {
 			await harness.session.bindExtensions({ uiContext: createTestUiContext({ setWidget }) });
 			harness.setResponses([
 				fauxAssistantMessage(
-					fauxToolCall("TaskCreate", { subject: "Add tests", description: "Test a real state transition" }),
+					fauxToolCall("TaskCreate", {
+						subject: "Add tests",
+						description: "Test a real state transition",
+						activeForm: "Adding tests",
+					}),
 					{ stopReason: "toolUse" },
 				),
 				fauxAssistantMessage(fauxToolCall("TaskUpdate", { taskId: "1", status: "in_progress" }), {
@@ -111,7 +118,8 @@ describe("native tasks plugin", () => {
 			await harness.session.prompt("Track the work");
 			expect(getToolResult(harness, "TaskGet").isError).toBe(false);
 			expect(readTaskState(harness.sessionManager).tasks[0].status).toBe("in_progress");
-			expect(setWidget.mock.calls.every((call) => call[2]?.placement === "sidebar")).toBe(true);
+			expect(setWidget).not.toHaveBeenCalled();
+			expect(readTaskState(harness.sessionManager).tasks[0].subject).toBe("Add tests");
 		} finally {
 			harness.cleanup();
 		}
@@ -195,11 +203,16 @@ describe("native subagents plugin", () => {
 	});
 	it("uses an isolated foreground session and accounts usage once", async () => {
 		const harness = await createHarness({ extensionFactories: [subagents()] });
+		const setWidget = vi.fn();
 		try {
-			await harness.session.bindExtensions({});
+			await harness.session.bindExtensions({ uiContext: createTestUiContext({ setWidget }) });
 			harness.setResponses([
 				fauxAssistantMessage(
-					fauxToolCall("Agent", { prompt: "Return a bounded result", run_in_background: false }),
+					fauxToolCall("Agent", {
+						prompt: "Return a bounded result",
+						description: "Inspect auth flow",
+						run_in_background: false,
+					}),
 					{ stopReason: "toolUse" },
 				),
 				fauxAssistantMessage("child result"),
@@ -211,6 +224,13 @@ describe("native subagents plugin", () => {
 			expect(result.isError).toBe(false);
 			expect(record.status).toBe("completed");
 			expect(record.output).toBe("child result");
+			initTheme("dark");
+			const factory = setWidget.mock.calls.at(-1)![1];
+			const rows = factory({ requestRender: vi.fn() } as unknown as TUI, theme)
+				.render(80)
+				.map(stripAnsi);
+			expect(rows.join("\n")).toContain("Inspect auth flow");
+			expect(rows[0]).toContain("Subagents");
 			expect(record.model).toBe(`${harness.getModel().provider}/${harness.getModel().id}`);
 			expect(harness.session.getSessionStats().assistantMessages).toBe(2);
 			expect(
@@ -281,6 +301,7 @@ describe("native subagents plugin", () => {
 			const stop = harness.session.getToolDefinition("TaskStop")!;
 			const result = await stop.execute("stop", { task_id: "1" }, undefined, undefined, ctx);
 			expect((result.details as SubagentRecord).status).toBe("stopped");
+			expect((result.details as SubagentRecord).description).toBe("Task 1");
 			expect(readTaskState(harness.sessionManager).tasks[0].status).toBe("pending");
 			await harness.session.waitForIdle();
 		} finally {

@@ -1,6 +1,6 @@
 # pi-ext built-in plugins
 
-pi-ext ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides the shared round composer and full-height sidebar; plugins contribute their own sidebar widgets.
+pi-ext ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a round composer, a dismissible floating Todo panel, and a single-line Subagents strip above the composer.
 
 ## Configuration directory
 
@@ -50,7 +50,7 @@ Tasks start as `pending`; use `in_progress` during work and `completed` only onc
 
 State is stored as session custom entries and reconstructed from the active branch. Tree navigation restores the tasks belonging to that point; compaction does not erase the task state. In-memory sessions remain in memory.
 
-`/tasks` and `/todos` show task details. The Todo sidebar is clickable; select a task to view its saved requirements.
+`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel opens at the top by default without taking keyboard focus. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
 
 ## Subagents
 
@@ -73,7 +73,7 @@ Runs are session-owned. Quit, reload, session replacement, and tree navigation s
 
 Provider-reported child usage is recorded through `pi.appendUsage()` once. Reading the result again does not add usage.
 
-`/agents` and clicking the Subagents sidebar open result, stop, and steering actions. Todo and Subagent widgets are not placed in the composer footer.
+Subagents appear on one row above the composer, with descriptions, status icons, and elapsed time. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
 
 ### Agent definitions
 
@@ -122,22 +122,23 @@ The schema, validation, normalization, response format, and RPC behavior are ada
 
 ## Terminal behavior
 
-- Full-height right sidebar in wide fullscreen terminals; `/sidebar` or `app.sidebar.toggle` toggles it. Drag the vertical divider to resize it. The sidebar keeps at least 20 columns and the main pane keeps at least 48 columns; shrinking the terminal clamps the visible width.
-- Narrow terminals use a full-width task panel instead of squeezing the composer. Cancel closes the panel. Mouse clicks open the same task/agent detail actions.
-- Rounded input borders show current run status/time. The directory and Git branch share one footer row with the model and thinking level right-aligned. Theme colors distinguish each field; long paths shorten before the model and level.
-- The sidebar Usage section groups `↑5.4M ↓287k`, `R166M CH100.0%`, and `79.6%/1.0M (auto)` on short rows. Cache reads are separate from input; full cache-write counts remain in `/session` details. Unknown values display `—`. Usage is not repeated in the fullscreen footer; regular mode retains a usage fallback.
-- Thinking and tool results default to collapsed rows. Click to expand, or use `app.thinking.toggle` / `app.tools.expand` for global controls.
+- The conversation uses the full terminal width. There is no application sidebar.
+- Todo is a non-capturing floating panel at the top. Subagents occupy one row above the rounded composer.
+- Rounded input borders show current run status/time on the left.
+- Token and context statistics use the original Pi footer, including input/output, cache reads/writes, cache hit rate, cost, and right-aligned model/thinking. Directories outside Git repositories have no branch placeholder.
+- Active Thinking content expands while it streams and collapses when the next phase starts. Explicit manual and global visibility choices are respected. Thinking and tool headers remain visible in both states; click again to collapse.
+- Tool states use icons: muted `◌` for waiting, a spinner while running, green `✓` for success, and red `✗` for failure. Durations show numbers without `Took` or `Elapsed`. A single tool expansion shortcut follows the transcript.
 - User messages keep the theme's default user background.
 
-Plugins can add any sidebar section without changing the application layout:
+Plugins can add composer widgets independently:
 
 ```ts
 pi.on("session_start", (_event, ctx) => {
-  ctx.ui.setWidget("my-plugin.jobs", ["Jobs", "No running jobs"], { placement: "sidebar" });
+  ctx.ui.setWidget("my-plugin.jobs", ["Jobs", "No running jobs"], { placement: "aboveEditor" });
 });
 ```
 
-Clear the widget with `ctx.ui.setWidget("my-plugin.jobs", undefined)`. Components can implement mouse handling. Sidebar content is independent of the main transcript scroll region.
+Clear the widget with `ctx.ui.setWidget("my-plugin.jobs", undefined)`. Components can implement mouse handling. Floating views use `ctx.ui.custom()` with overlay options and can opt out of keyboard focus using `nonCapturing`.
 
 ## Related migration assessment
 

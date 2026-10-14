@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import type { AgentToolResult, ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { StringEnum } from "@earendil-works/pi-ai";
-import { MouseRegion, Text } from "@earendil-works/pi-tui";
+import type { AgentMessage, AgentToolResult, ThinkingLevel } from "@earendil-works/pi-agent-core";
+import { type AssistantMessage, StringEnum } from "@earendil-works/pi-ai";
+import type { TUI } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import { getAgentDir } from "../../config.ts";
@@ -21,6 +21,8 @@ import { truncateMiddle } from "../../core/tools/truncate.ts";
 import { raceWithAbortSignal } from "../../utils/abort.ts";
 import { readTaskState, TASK_RUN_EVENT } from "../tasks/index.ts";
 import { discoverAgentDefinitions } from "./definitions.ts";
+import { SubagentStrip } from "./strip.ts";
+import { SubagentDetailView } from "./view.ts";
 
 export const SUBAGENT_ENTRY = "pi-ext.subagent";
 const recordSchema = Type.Object({
@@ -58,6 +60,7 @@ interface Run {
 	record: SubagentRecord;
 	controller: AbortController;
 	child?: AgentSession;
+	streaming?: AssistantMessage;
 	started: boolean;
 	done: Promise<void>;
 	resolve: () => void;
@@ -71,6 +74,10 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		const agentDir = options.agentDir ?? getAgentDir();
 		const records = new Map<string, SubagentRecord>();
 		const runs = new Map<string, Run>();
+		const transcripts = new Map<string, AgentMessage[]>();
+		let detailOpen = false;
+		let detailUI: TUI | undefined;
+		let closeDetail: (() => void) | undefined;
 		const queue: Run[] = [];
 		let active = 0;
 		let closing = false;
@@ -87,6 +94,47 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 				display: true,
 				details: record,
 			});
+		const showDetail = async (record: SubagentRecord, ctx: ExtensionContext) => {
+			if (!ctx.hasUI || ctx.mode !== "tui") {
+				viewResult(record);
+				return;
+			}
+			if (detailOpen) return;
+			if (!transcripts.has(record.id)) {
+				const messages: AgentMessage[] = record.sessionFile
+					? SessionManager.open(record.sessionFile)
+							.getBranch()
+							.flatMap((entry) => (entry.type === "message" ? [entry.message] : []))
+					: [{ role: "user", content: record.prompt, timestamp: record.startedAt }];
+				transcripts.set(record.id, messages);
+			}
+			detailOpen = true;
+			try {
+				await ctx.ui.custom<void>(
+					(tui, _theme, _keys, done) => {
+						detailUI = tui;
+						closeDetail = () => done();
+						return new SubagentDetailView(
+							tui,
+							() => {
+								const run = runs.get(record.id);
+								return {
+									...record,
+									messages: run?.child?.messages ?? transcripts.get(record.id) ?? [],
+									streaming: run?.streaming,
+								};
+							},
+							closeDetail,
+						);
+					},
+					{ overlay: true, overlayOptions: { width: "100%", maxHeight: "100%", margin: 0 } },
+				);
+			} finally {
+				detailOpen = false;
+				detailUI = undefined;
+				closeDetail = undefined;
+			}
+		};
 		const showAgents = async (ctx: ExtensionContext) => {
 			const list = [...records.values()];
 			if (!ctx.hasUI) {
@@ -105,12 +153,14 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 				ctx.ui.notify("No subagents. Ask the agent to delegate a task.", "info");
 				return;
 			}
-			const labels = list.map((record) => `${record.agent} · ${record.status} · ${record.id}`);
+			const labels = list.map(
+				(record) => `${record.description} · ${record.agent} · ${record.status} · ${record.id}`,
+			);
 			const selected = await ctx.ui.select("Subagents", labels);
 			const record = list[labels.indexOf(selected ?? "")];
 			if (!record) return;
 			const action = await ctx.ui.select(record.description, ["View result", "Stop", "Send steering"]);
-			if (action === "View result") viewResult(record);
+			if (action === "View result") await showDetail(record, ctx);
 			if (action === "Stop") await stop(record.id);
 			if (action === "Send steering") {
 				const message = await ctx.ui.input("Steering message");
@@ -126,34 +176,19 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			const ctx = context;
 			ctx.ui.setWidget(
 				"pi-ext.subagents",
-				(_tui, theme) => {
-					const lines = [theme.fg("accent", theme.bold("Subagents"))];
-					if (!records.size) lines.push(theme.fg("muted", "No subagents"));
-					for (const record of records.values()) {
-						const seconds = ((record.finishedAt ?? Date.now()) - record.startedAt) / 1000;
-						const color =
-							record.status === "completed"
-								? "success"
-								: record.status === "error"
-									? "error"
-									: record.status === "running"
-										? "accent"
-										: "muted";
-						lines.push(
-							theme.fg(color, `${record.agent} · ${record.status}`),
-							theme.fg("muted", `${seconds.toFixed(1)}s${record.taskId ? ` · Task #${record.taskId}` : ""}`),
-						);
-						if (record.activeTool && record.status === "running")
-							lines.push(theme.fg("muted", record.activeTool));
-					}
-					return new MouseRegion(new Text(lines.join("\n"), 1, 1), (event) => {
-						if (event.type !== "click" || event.button !== "left") return undefined;
-						void showAgents(ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
-						return { handled: true };
-					});
-				},
-				{ placement: "sidebar" },
+				() =>
+					new SubagentStrip(
+						[...records.values()],
+						(record) => {
+							void showDetail(record, ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
+						},
+						() => {
+							void showAgents(ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
+						},
+					),
+				{ placement: "aboveEditor" },
 			);
+			detailUI?.requestRender();
 		};
 		const pump = () => {
 			while (!closing && active < 4 && queue.length) {
@@ -189,6 +224,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			await run.done;
 		};
 		const stopAll = async () => {
+			closeDetail?.();
 			closing = true;
 			if (timer) {
 				clearInterval(timer);
@@ -204,6 +240,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			context = ctx;
 			closing = false;
 			records.clear();
+			transcripts.clear();
 			for (const entry of ctx.sessionManager.getBranch()) {
 				if (entry.type !== "custom" || entry.customType !== SUBAGENT_ENTRY) continue;
 				if (!validateRecord.Check(entry.data)) throw new Error("Invalid saved subagent record");
@@ -234,6 +271,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			context = ctx;
 			closing = false;
 			records.clear();
+			transcripts.clear();
 			for (const entry of ctx.sessionManager.getBranch())
 				if (entry.type === "custom" && entry.customType === SUBAGENT_ENTRY && validateRecord.Check(entry.data)) {
 					const record = structuredClone(entry.data);
@@ -382,6 +420,10 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 						refresh();
 						let turns = 0;
 						child.subscribe((event) => {
+							if (event.type === "message_update" && event.message.role === "assistant")
+								run.streaming = event.message;
+							if (event.type === "message_end") run.streaming = undefined;
+							detailUI?.requestRender();
 							if (event.type === "tool_execution_start") record.activeTool = event.toolName;
 							if (event.type === "tool_execution_end") record.activeTool = undefined;
 							if (
@@ -419,6 +461,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 					} finally {
 						controller.signal.removeEventListener("abort", abort);
 						if (child) {
+							transcripts.set(record.id, [...child.messages]);
 							for (const entry of child.sessionManager.getEntries().slice(usageStart)) {
 								if (entry.type === "message" && entry.message.role === "assistant")
 									pi.appendUsage("subagent", entry.message.provider, entry.message.model, entry.message.usage);
@@ -600,6 +643,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 					prepare(
 						{
 							prompt: `${task.subject}\n\n${task.description}${args.additional_context ? `\n\n${args.additional_context}` : ""}`,
+							description: task.subject,
 							subagent_type: task.agentType,
 							model: args.model,
 							max_turns: args.max_turns,

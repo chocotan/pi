@@ -12,7 +12,7 @@
 
 # Pi-ext
 
-Pi-ext is a source fork of Pi with built-in task, subagent, and ask-user plugins, a round composer, and an extensible full-height sidebar. Its configuration and runtime directory is `~/.pi-ext`. See [Pi-ext features and configuration](packages/coding-agent/docs/pi-ext.md).
+Pi-ext is a source fork of Pi with built-in task, subagent, and ask-user plugins, a round composer, a dismissible floating Todo panel, and a single-line Subagents strip above the composer. Its configuration and runtime directory is `~/.pi-ext`. See [Pi-ext features and configuration](packages/coding-agent/docs/pi-ext.md).
 
 Pi is a minimal, extensible agent harness that you can make your own.
 

@@ -30,6 +30,7 @@ export class AssistantMessageComponent extends Container {
 	private hasToolCalls = false;
 	private isStreaming = false;
 	private thinkingVisibilityOverrides = new Map<number, boolean>();
+	private globalThinkingVisibilityOverride?: boolean;
 	private readonly thinkingTimes = new Map<number, { started: number; ended?: number }>();
 
 	constructor(
@@ -66,6 +67,7 @@ export class AssistantMessageComponent extends Container {
 
 	setHideThinkingBlock(hide: boolean): void {
 		this.hideThinkingBlock = hide;
+		this.globalThinkingVisibilityOverride = hide;
 		this.thinkingVisibilityOverrides.clear();
 		if (this.lastMessage) {
 			this.updateContent(this.lastMessage);
@@ -149,8 +151,11 @@ export class AssistantMessageComponent extends Container {
 					.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));
 
 				const runIndex = thinkingRunIndex++;
-				const hidden = this.thinkingVisibilityOverrides.get(runIndex) ?? this.hideThinkingBlock;
 				const active = this.isStreaming && i === message.content.length - 1;
+				const hidden =
+					this.thinkingVisibilityOverrides.get(runIndex) ??
+					this.globalThinkingVisibilityOverride ??
+					(!active && this.hideThinkingBlock);
 				if (this.isStreaming && !this.thinkingTimes.has(runIndex))
 					this.thinkingTimes.set(runIndex, { started: Date.now() });
 				const timing = this.thinkingTimes.get(runIndex);
@@ -159,9 +164,17 @@ export class AssistantMessageComponent extends Container {
 				const elapsed = timing
 					? ` · ${(Math.max(0, (timing.ended ?? Date.now()) - timing.started) / 1000).toFixed(1)}s`
 					: "";
-				const thinkingComponent = hidden
-					? new TruncatedText(theme.italic(theme.fg("thinkingText", `▸ ${label}${elapsed}`)), this.outputPad, 0)
-					: new Markdown(
+				const thinkingComponent = new Container();
+				thinkingComponent.addChild(
+					new TruncatedText(
+						theme.italic(theme.fg("thinkingText", `${hidden ? "▸" : "▾"} ${label}${elapsed}`)),
+						this.outputPad,
+						0,
+					),
+				);
+				if (!hidden) {
+					thinkingComponent.addChild(
+						new Markdown(
 							thinkingBlocks.join("\n\n"),
 							this.outputPad,
 							0,
@@ -177,10 +190,15 @@ export class AssistantMessageComponent extends Container {
 									this.markdownTransformers,
 								),
 							},
-						);
+						),
+					);
+				}
+
 				this.contentContainer.addChild(
 					new MouseRegion(thinkingComponent, (event) => {
-						if (event.type !== "click" || event.button !== "left") return undefined;
+						if (event.button !== "left") return undefined;
+						if (event.type === "press" && event.y === 0) return { handled: true, render: false };
+						if (event.type !== "click") return undefined;
 						this.thinkingVisibilityOverrides.set(runIndex, !hidden);
 						if (this.lastMessage) this.updateContent(this.lastMessage);
 						return { handled: true };

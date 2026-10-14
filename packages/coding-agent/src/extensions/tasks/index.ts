@@ -1,9 +1,10 @@
 import { StringEnum } from "@earendil-works/pi-ai";
-import { MouseRegion, Text } from "@earendil-works/pi-tui";
+import type { TUI } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import type { ExtensionAPI, ExtensionContext } from "../../core/extensions/types.ts";
 import type { ReadonlySessionManager } from "../../core/session-manager.ts";
+import { TodoPanel } from "./view.ts";
 
 export const TASK_STATE_ENTRY = "pi-ext.tasks";
 export const TASK_RUN_EVENT = "pi-ext.task-run";
@@ -90,55 +91,87 @@ export function updateTask(state: TaskState, changes: Static<typeof updateSchema
 
 export default function tasksPlugin(pi: ExtensionAPI): void {
 	let context: ExtensionContext | undefined;
+	let state: TaskState = { nextId: 1, tasks: [] };
+	let panelOpen = false;
+	let dismissed = false;
+	let generation = 0;
+	let panelUI: TUI | undefined;
+	let closePanel: (() => void) | undefined;
+	const openPanel = (ctx: ExtensionContext) => {
+		if (!ctx.hasUI || ctx.mode !== "tui" || panelOpen) return;
+		panelOpen = true;
+		const current = ++generation;
+		void ctx.ui
+			.custom<void>(
+				(tui, _theme, _keys, done) => {
+					panelUI = tui;
+					closePanel = () => {
+						if (current === generation) dismissed = true;
+						done();
+					};
+					return new TodoPanel(
+						tui,
+						() => state,
+						closePanel,
+						(task) => {
+							pi.sendMessage({
+								customType: "pi-ext.task-detail",
+								content: JSON.stringify(task, null, 2),
+								display: true,
+							});
+						},
+					);
+				},
+				{
+					overlay: true,
+					overlayOptions: {
+						anchor: "top-right",
+						width: "45%",
+						minWidth: 28,
+						maxHeight: "35%",
+						margin: 1,
+						nonCapturing: true,
+					},
+				},
+			)
+			.catch((error: unknown) => ctx.ui.notify(String(error), "error"))
+			.finally(() => {
+				if (current !== generation) return;
+				panelOpen = false;
+				panelUI = undefined;
+				closePanel = undefined;
+			});
+	};
+	const resetPanel = () => {
+		generation++;
+		closePanel?.();
+		closePanel = undefined;
+		panelUI = undefined;
+		panelOpen = false;
+		dismissed = false;
+	};
 	const show = (ctx: ExtensionContext) => {
 		context = ctx;
-		const state = readTaskState(ctx.sessionManager);
-		ctx.ui.setWidget(
-			"pi-ext.todo",
-			(_tui, theme) => {
-				const done = state.tasks.filter((task) => task.status === "completed").length;
-				const lines = [theme.fg("accent", theme.bold(`Todo · ${done}/${state.tasks.length}`))];
-				if (!state.tasks.length) lines.push(theme.fg("muted", "No tasks"));
-				for (const task of state.tasks) {
-					const marker = task.status === "completed" ? "✓" : task.status === "in_progress" ? ">" : "·";
-					const color =
-						task.status === "completed" ? "success" : task.status === "in_progress" ? "accent" : "muted";
-					lines.push(
-						theme.fg(
-							color,
-							`${marker} #${task.id} ${task.status === "in_progress" ? (task.activeForm ?? task.subject) : task.subject}`,
-						),
-					);
-				}
-				return new MouseRegion(new Text(lines.join("\n"), 1, 1), (event) => {
-					if (event.type !== "click" || event.button !== "left") return undefined;
-					void ctx.ui
-						.select(
-							"Todo",
-							state.tasks.map((task) => `#${task.id} · ${task.status} · ${task.subject}`),
-						)
-						.then((selection) => {
-							const task = state.tasks.find((item) => selection?.startsWith(`#${item.id} ·`));
-							if (task)
-								pi.sendMessage({
-									customType: "pi-ext.task-detail",
-									content: JSON.stringify(task, null, 2),
-									display: true,
-								});
-						})
-						.catch((error: unknown) => ctx.ui.notify(String(error), "error"));
-					return { handled: true };
-				});
-			},
-			{ placement: "sidebar" },
-		);
+		state = readTaskState(ctx.sessionManager);
+		if (!dismissed) openPanel(ctx);
+		panelUI?.requestRender();
 	};
 	const save = (state: TaskState, ctx: ExtensionContext) => {
 		pi.appendEntry(TASK_STATE_ENTRY, state);
 		show(ctx);
 	};
-	pi.on("session_start", (_event, ctx) => show(ctx));
-	pi.on("session_tree", (_event, ctx) => show(ctx));
+	pi.on("session_start", (_event, ctx) => {
+		resetPanel();
+		show(ctx);
+	});
+	pi.on("session_tree", (_event, ctx) => {
+		resetPanel();
+		show(ctx);
+	});
+	pi.on("session_shutdown", () => {
+		resetPanel();
+		context = undefined;
+	});
 	pi.events.on(TASK_RUN_EVENT, (data) => {
 		if (!context || !data || typeof data !== "object" || !("taskId" in data) || !("status" in data)) return;
 		if (
@@ -240,6 +273,11 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 		pi.registerCommand(command, {
 			description: "Show tasks on the current session branch",
 			async handler(_args, ctx) {
+				if (ctx.hasUI && ctx.mode === "tui") {
+					dismissed = false;
+					show(ctx);
+					return;
+				}
 				pi.sendMessage({
 					customType: "pi-ext.task-list",
 					content: JSON.stringify(readTaskState(ctx.sessionManager).tasks, null, 2),

@@ -47,7 +47,6 @@ const APP_KEYBINDINGS = {
 		description: "Cycle to previous model",
 	},
 	"app.model.select": { defaultKeys: "ctrl+l", description: "Open model selector" },
-	"app.sidebar.toggle": { defaultKeys: "ctrl+shift+b", description: "Toggle task and subagent sidebar" },
 	"app.question.next": { defaultKeys: "tab", description: "Next questionnaire tab" },
 	"app.question.previous": { defaultKeys: "shift+tab", description: "Previous questionnaire tab" },
 	"app.question.toggle": { defaultKeys: "space", description: "Toggle questionnaire option" },

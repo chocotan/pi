@@ -44,6 +44,55 @@ describe("AssistantMessageComponent", () => {
 		expect(lines.join("\n")).toContain("Thought");
 		expect(lines.join("\n")).not.toContain("private reasoning");
 	});
+	test("keeps the Thought header through repeated mouse expansion and collapse", () => {
+		initTheme("dark");
+		const component = new AssistantMessageComponent(
+			createAssistantMessage([{ type: "thinking", thinking: "reasoning body" }]),
+		);
+		for (const expanded of [true, false, true, false]) {
+			const lines = component.render(80);
+			const y = lines.findIndex((line) => stripAnsi(line).includes("Thought"));
+			expect(y).toBeGreaterThanOrEqual(0);
+			expect(
+				component.handleMouse({
+					type: "click",
+					button: "left",
+					x: 1,
+					y,
+					screenX: 1,
+					screenY: y,
+					width: 80,
+					height: lines.length,
+					shift: false,
+					alt: false,
+					ctrl: false,
+					clickCount: 1,
+				})?.handled,
+			).toBe(true);
+			const rendered = stripAnsi(component.render(80).join("\n"));
+			expect(rendered).toContain(`${expanded ? "▾" : "▸"} Thought`);
+			expect(rendered.includes("reasoning body")).toBe(expanded);
+		}
+	});
+	test.each(["tool", "answer", "end"])("auto-expands live thinking and collapses on %s", (phase) => {
+		initTheme("dark");
+		const thinking = { type: "thinking" as const, thinking: "live reasoning" };
+		const component = new AssistantMessageComponent();
+		component.updateContent(createAssistantMessage([thinking]), true);
+		let rendered = stripAnsi(component.render(80).join("\n"));
+		expect(rendered).toContain("▾ Thinking...");
+		expect(rendered).toContain("live reasoning");
+		const next =
+			phase === "tool"
+				? [thinking, { type: "toolCall" as const, id: "tool", name: "read", arguments: {} }]
+				: phase === "answer"
+					? [thinking, { type: "text" as const, text: "answer" }]
+					: [thinking];
+		component.updateContent(createAssistantMessage(next), phase !== "end");
+		rendered = stripAnsi(component.render(80).join("\n"));
+		expect(rendered).toContain("▸ Thought");
+		expect(rendered).not.toContain("live reasoning");
+	});
 	test("adds OSC 133 zone markers to assistant messages without tool calls", () => {
 		initTheme("dark");
 
