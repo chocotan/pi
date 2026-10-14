@@ -571,6 +571,10 @@ export class InteractiveMode {
 	// Extension widgets (components rendered above/below the editor)
 	private extensionWidgetsAbove = new Map<string, Component & { dispose?(): void }>();
 	private extensionWidgetsBelow = new Map<string, Component & { dispose?(): void }>();
+	private extensionWidgetsFloating = new Map<string, Component & { dispose?(): void }>();
+	private floatingWidgetOrders = new Map<string, number>();
+	private readonly floatingWidgetContainer = new Container();
+	private floatingWidgetOverlay: OverlayHandle | undefined;
 	private widgetContainerAbove!: Container;
 	private widgetContainerBelow!: Container;
 
@@ -909,7 +913,14 @@ export class InteractiveMode {
 	private switchTuiMode(mode: TuiMode, restoreProgress = true, startRenderer = true): boolean {
 		const previousUi = this.renderer;
 		if (mode === previousUi.mode) return true;
-		if (previousUi.hasOverlayEntries) return false;
+		if (this.floatingWidgetOverlay) {
+			this.floatingWidgetOverlay.hide();
+			this.floatingWidgetOverlay = undefined;
+			if (previousUi.hasOverlayEntries) {
+				this.renderFloatingWidgets();
+				return false;
+			}
+		} else if (previousUi.hasOverlayEntries) return false;
 
 		const components = [...previousUi.children];
 		const focus = previousUi.getFocusedComponent();
@@ -945,6 +956,7 @@ export class InteractiveMode {
 		this.mountInteractiveTui(nextUi, components);
 		nextUi.invalidate();
 		nextUi.setFocus(focus);
+		if (this.extensionWidgetsFloating?.size) this.renderFloatingWidgets();
 		if (!startRenderer) return true;
 		nextUi.start();
 		this.themeController.rebindTui();
@@ -2429,6 +2441,8 @@ export class InteractiveMode {
 
 		removeExisting(this.extensionWidgetsAbove);
 		removeExisting(this.extensionWidgetsBelow);
+		removeExisting(this.extensionWidgetsFloating);
+		this.floatingWidgetOrders.delete(key);
 
 		if (content === undefined) {
 			this.renderWidgets();
@@ -2452,8 +2466,14 @@ export class InteractiveMode {
 			component = content(this.ui, theme);
 		}
 
-		const targetMap = placement === "belowEditor" ? this.extensionWidgetsBelow : this.extensionWidgetsAbove;
+		const targetMap =
+			placement === "floating"
+				? this.extensionWidgetsFloating
+				: placement === "belowEditor"
+					? this.extensionWidgetsBelow
+					: this.extensionWidgetsAbove;
 		targetMap.set(key, component);
+		if (placement === "floating") this.floatingWidgetOrders.set(key, options?.order ?? 0);
 		this.renderWidgets();
 	}
 
@@ -2464,6 +2484,9 @@ export class InteractiveMode {
 		for (const widget of this.extensionWidgetsBelow.values()) {
 			widget.dispose?.();
 		}
+		for (const widget of this.extensionWidgetsFloating.values()) widget.dispose?.();
+		this.extensionWidgetsFloating.clear();
+		this.floatingWidgetOrders.clear();
 		this.extensionWidgetsAbove.clear();
 		this.extensionWidgetsBelow.clear();
 		this.renderWidgets();
@@ -2512,7 +2535,32 @@ export class InteractiveMode {
 		if (!this.widgetContainerAbove || !this.widgetContainerBelow) return;
 		this.renderWidgetContainer(this.widgetContainerAbove, this.extensionWidgetsAbove, true, true);
 		this.renderWidgetContainer(this.widgetContainerBelow, this.extensionWidgetsBelow, false, false);
+		this.renderFloatingWidgets();
 		this.ui.requestRender();
+	}
+
+	private renderFloatingWidgets(): void {
+		this.floatingWidgetContainer.clear();
+		const panels = [...this.extensionWidgetsFloating].sort(
+			([a], [b]) => (this.floatingWidgetOrders.get(a) ?? 0) - (this.floatingWidgetOrders.get(b) ?? 0),
+		);
+		for (const [index, [, panel]] of panels.entries()) {
+			if (index) this.floatingWidgetContainer.addChild(new Spacer(1));
+			this.floatingWidgetContainer.addChild(panel);
+		}
+		if (!panels.length) {
+			this.floatingWidgetOverlay?.hide();
+			this.floatingWidgetOverlay = undefined;
+		} else if (!this.floatingWidgetOverlay) {
+			this.floatingWidgetOverlay = this.ui.showOverlay(this.floatingWidgetContainer, {
+				anchor: "top-right",
+				width: "45%",
+				minWidth: 28,
+				maxHeight: "70%",
+				margin: 1,
+				nonCapturing: true,
+			});
+		}
 	}
 
 	private renderWidgetContainer(

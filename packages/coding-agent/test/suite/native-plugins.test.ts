@@ -95,6 +95,58 @@ describe("native tasks plugin", () => {
 		}
 	});
 
+	it("hides an empty Todo panel and preserves dismissal through task updates", async () => {
+		initTheme("dark");
+		const harness = await createHarness({ extensionFactories: [tasksPlugin] });
+		const setWidget = vi.fn();
+		try {
+			await harness.session.bindExtensions({ mode: "tui", uiContext: createTestUiContext({ setWidget }) });
+			expect(setWidget.mock.calls.every((call) => call[1] === undefined)).toBe(true);
+			const ctx = harness.session.extensionRunner.createToolContext("todo-ui", undefined);
+			const create = harness.session.getToolDefinition("TaskCreate")!;
+			const update = harness.session.getToolDefinition("TaskUpdate")!;
+			await create.execute("create-1", { subject: "First task", description: "Details" }, undefined, undefined, ctx);
+			const ui = { terminal: { rows: 24 }, requestRender: vi.fn() } as unknown as TUI;
+			const panel = setWidget.mock.calls.at(-1)![1](ui, theme);
+			expect(stripAnsi(panel.render(40).join("\n"))).toContain("First task");
+			await update.execute("delete-1", { taskId: "1", status: "deleted" }, undefined, undefined, ctx);
+			expect(setWidget.mock.calls.at(-1)![1]).toBeUndefined();
+			await create.execute(
+				"create-2",
+				{ subject: "Second task", description: "Details" },
+				undefined,
+				undefined,
+				ctx,
+			);
+			const secondPanel = setWidget.mock.calls.at(-1)![1](ui, theme);
+			secondPanel.render(40);
+			secondPanel.handleMouse({
+				type: "click",
+				button: "left",
+				x: 36,
+				y: 0,
+				screenX: 36,
+				screenY: 0,
+				width: 40,
+				height: 24,
+				shift: false,
+				alt: false,
+				ctrl: false,
+				clickCount: 1,
+			});
+			await update.execute("update-2", { taskId: "2", status: "in_progress" }, undefined, undefined, ctx);
+			expect(setWidget.mock.calls.at(-1)![1]).toBeUndefined();
+			await update.execute("delete-2", { taskId: "2", status: "deleted" }, undefined, undefined, ctx);
+			await create.execute("create-3", { subject: "Third task", description: "Details" }, undefined, undefined, ctx);
+			expect(setWidget.mock.calls.at(-1)![1]).toBeUndefined();
+			await harness.session.extensionRunner
+				.getCommand("tasks")!
+				.handler("", harness.session.extensionRunner.createCommandContext());
+			expect(setWidget.mock.calls.at(-1)![1]).toBeTypeOf("function");
+		} finally {
+			harness.cleanup();
+		}
+	});
 	it("registers usable CRUD tools without duplicating Todo in composer widgets", async () => {
 		const harness = await createHarness({ extensionFactories: [tasksPlugin] });
 		const setWidget = vi.fn();
@@ -226,7 +278,7 @@ describe("native subagents plugin", () => {
 			expect(record.output).toBe("child result");
 			initTheme("dark");
 			const factory = setWidget.mock.calls.at(-1)![1];
-			const rows = factory({ requestRender: vi.fn() } as unknown as TUI, theme)
+			const rows = factory({ terminal: { rows: 24 }, requestRender: vi.fn() } as unknown as TUI, theme)
 				.render(80)
 				.map(stripAnsi);
 			expect(rows.join("\n")).toContain("Inspect auth flow");

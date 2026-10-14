@@ -1,5 +1,4 @@
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { TUI } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import type { ExtensionAPI, ExtensionContext } from "../../core/extensions/types.ts";
@@ -92,69 +91,40 @@ export function updateTask(state: TaskState, changes: Static<typeof updateSchema
 export default function tasksPlugin(pi: ExtensionAPI): void {
 	let context: ExtensionContext | undefined;
 	let state: TaskState = { nextId: 1, tasks: [] };
-	let panelOpen = false;
 	let dismissed = false;
-	let generation = 0;
-	let panelUI: TUI | undefined;
-	let closePanel: (() => void) | undefined;
-	const openPanel = (ctx: ExtensionContext) => {
-		if (!ctx.hasUI || ctx.mode !== "tui" || panelOpen) return;
-		panelOpen = true;
-		const current = ++generation;
-		void ctx.ui
-			.custom<void>(
-				(tui, _theme, _keys, done) => {
-					panelUI = tui;
-					closePanel = () => {
-						if (current === generation) dismissed = true;
-						done();
-					};
-					return new TodoPanel(
-						tui,
-						() => state,
-						closePanel,
-						(task) => {
-							pi.sendMessage({
-								customType: "pi-ext.task-detail",
-								content: JSON.stringify(task, null, 2),
-								display: true,
-							});
-						},
-					);
-				},
-				{
-					overlay: true,
-					overlayOptions: {
-						anchor: "top-right",
-						width: "45%",
-						minWidth: 28,
-						maxHeight: "35%",
-						margin: 1,
-						nonCapturing: true,
-					},
-				},
-			)
-			.catch((error: unknown) => ctx.ui.notify(String(error), "error"))
-			.finally(() => {
-				if (current !== generation) return;
-				panelOpen = false;
-				panelUI = undefined;
-				closePanel = undefined;
-			});
-	};
+	const hidePanel = () => context?.ui.setWidget("pi-ext.todo", undefined);
 	const resetPanel = () => {
-		generation++;
-		closePanel?.();
-		closePanel = undefined;
-		panelUI = undefined;
-		panelOpen = false;
+		hidePanel();
 		dismissed = false;
 	};
 	const show = (ctx: ExtensionContext) => {
 		context = ctx;
 		state = readTaskState(ctx.sessionManager);
-		if (!dismissed) openPanel(ctx);
-		panelUI?.requestRender();
+		if (!ctx.hasUI || ctx.mode !== "tui") return;
+		if (dismissed || !state.tasks.length) {
+			hidePanel();
+			return;
+		}
+		ctx.ui.setWidget(
+			"pi-ext.todo",
+			(tui) =>
+				new TodoPanel(
+					tui,
+					() => state,
+					() => {
+						dismissed = true;
+						hidePanel();
+					},
+					(task) => {
+						pi.sendMessage({
+							customType: "pi-ext.task-detail",
+							content: JSON.stringify(task, null, 2),
+							display: true,
+						});
+					},
+				),
+			{ placement: "floating", order: 10 },
+		);
 	};
 	const save = (state: TaskState, ctx: ExtensionContext) => {
 		pi.appendEntry(TASK_STATE_ENTRY, state);

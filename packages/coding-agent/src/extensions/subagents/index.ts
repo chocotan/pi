@@ -21,7 +21,7 @@ import { truncateMiddle } from "../../core/tools/truncate.ts";
 import { raceWithAbortSignal } from "../../utils/abort.ts";
 import { readTaskState, TASK_RUN_EVENT } from "../tasks/index.ts";
 import { discoverAgentDefinitions } from "./definitions.ts";
-import { SubagentStrip } from "./strip.ts";
+import { SubagentPanel } from "./panel.ts";
 import { SubagentDetailView } from "./view.ts";
 
 export const SUBAGENT_ENTRY = "pi-ext.subagent";
@@ -82,6 +82,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		let active = 0;
 		let closing = false;
 		let context: ExtensionContext | undefined;
+		let panelDismissed = false;
 		let timer: ReturnType<typeof setInterval> | undefined;
 		const save = (record: SubagentRecord) => pi.appendEntry(SUBAGENT_ENTRY, structuredClone(record));
 		const reportTask = (record: SubagentRecord, status: "pending" | "in_progress" | "completed") => {
@@ -176,17 +177,26 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			const ctx = context;
 			ctx.ui.setWidget(
 				"pi-ext.subagents",
-				() =>
-					new SubagentStrip(
-						[...records.values()],
-						(record) => {
-							void showDetail(record, ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
-						},
-						() => {
-							void showAgents(ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
-						},
-					),
-				{ placement: "aboveEditor" },
+				!records.size || panelDismissed
+					? undefined
+					: (tui) =>
+							new SubagentPanel(
+								tui,
+								[...records.values()],
+								(record) => {
+									void showDetail(record, ctx).catch((error: unknown) =>
+										ctx.ui.notify(String(error), "error"),
+									);
+								},
+								() => {
+									void showAgents(ctx).catch((error: unknown) => ctx.ui.notify(String(error), "error"));
+								},
+								() => {
+									panelDismissed = true;
+									refresh();
+								},
+							),
+				{ placement: "floating", order: 20 },
 			);
 			detailUI?.requestRender();
 		};
@@ -238,6 +248,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		};
 		pi.on("session_start", (_event, ctx) => {
 			context = ctx;
+			panelDismissed = false;
 			closing = false;
 			records.clear();
 			transcripts.clear();
@@ -269,6 +280,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		});
 		pi.on("session_tree", (_event, ctx) => {
 			context = ctx;
+			panelDismissed = false;
 			closing = false;
 			records.clear();
 			transcripts.clear();
@@ -727,7 +739,11 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		});
 		pi.registerCommand("agents", {
 			description: "View subagent results, stop work, or send steering",
-			handler: async (_args, ctx) => showAgents(ctx),
+			handler: async (_args, ctx) => {
+				panelDismissed = false;
+				refresh();
+				await showAgents(ctx);
+			},
 		});
 	};
 }

@@ -121,6 +121,73 @@ describe("native UI regressions", () => {
 		expect(prototype.renderToolExpansionHint.call(context, 80)).toEqual([]);
 	});
 
+	it("stacks floating widgets without changing focus or jumping order on refresh", async () => {
+		const terminal = new VirtualTerminal(100, 24);
+		const ui = createInteractiveTui({
+			tuiMode: "fullscreen",
+			terminal,
+			showHardwareCursor: false,
+			logDirectory: "/tmp",
+		});
+		const editor = { focused: false, render: () => ["Composer"], invalidate: () => {}, handleInput: vi.fn() };
+		const context = {
+			ui,
+			widgetContainerAbove: new Container(),
+			widgetContainerBelow: new Container(),
+			floatingWidgetContainer: new Container(),
+			extensionWidgetsAbove: new Map<string, Component>(),
+			extensionWidgetsBelow: new Map<string, Component>(),
+			extensionWidgetsFloating: new Map<string, Component>(),
+			floatingWidgetOrders: new Map<string, number>(),
+			floatingWidgetOverlay: undefined as ReturnType<TUI["showOverlay"]> | undefined,
+			renderWidgets() {
+				prototype.renderWidgets.call(context);
+			},
+			renderFloatingWidgets() {
+				prototype.renderFloatingWidgets.call(context);
+			},
+			renderWidgetContainer() {},
+		};
+		const prototype = InteractiveMode.prototype as unknown as {
+			renderWidgets(this: typeof context): void;
+			renderFloatingWidgets(this: typeof context): void;
+			setExtensionWidget(
+				this: typeof context,
+				key: string,
+				content: string[] | undefined,
+				options?: { placement: "floating"; order: number },
+			): void;
+		};
+		ui.setLayoutRoot(editor);
+		ui.setFocus(editor);
+		ui.start();
+		try {
+			for (const [key, order] of [
+				["Subagents", 20],
+				["Todo", 10],
+				["Subagents", 20],
+			] as const)
+				prototype.setExtensionWidget.call(context, key, [key], { placement: "floating", order });
+			await terminal.waitForRender();
+			let screen = terminal.getViewport();
+			const todoRow = screen.findIndex((line) => line.includes("Todo"));
+			const subagentRow = screen.findIndex((line) => line.includes("Subagents"));
+			expect(todoRow).toBeGreaterThanOrEqual(0);
+			expect(subagentRow).toBeGreaterThan(todoRow);
+			expect(ui.getFocusedComponent()).toBe(editor);
+			terminal.sendInput("draft");
+			expect(editor.handleInput).toHaveBeenCalledWith("draft");
+			prototype.setExtensionWidget.call(context, "Todo", undefined);
+			await terminal.waitForRender();
+			screen = terminal.getViewport();
+			expect(screen.findIndex((line) => line.includes("Subagents"))).toBe(todoRow);
+			expect(screen.join("\n")).not.toContain("Todo");
+			prototype.setExtensionWidget.call(context, "Subagents", undefined);
+			expect(context.floatingWidgetOverlay).toBeUndefined();
+		} finally {
+			ui.stop();
+		}
+	});
 	it("closing a lower non-capturing overlay does not close the detail above it", async () => {
 		const hideTodo = vi.fn();
 		const hideDetail = vi.fn();

@@ -1,7 +1,7 @@
 import { type TUI, type TuiMouseEvent, visibleWidth } from "@earendil-works/pi-tui";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { SubagentRecord } from "../src/extensions/subagents/index.ts";
-import { SubagentStrip } from "../src/extensions/subagents/strip.ts";
+import { SubagentPanel } from "../src/extensions/subagents/panel.ts";
 import type { TaskState } from "../src/extensions/tasks/index.ts";
 import { TodoPanel } from "../src/extensions/tasks/view.ts";
 import { initTheme } from "../src/modes/interactive/theme/theme.ts";
@@ -64,7 +64,7 @@ describe("workflow floating and inline widgets", () => {
 		panel.handleMouse(mouse(76, 0));
 		expect(close).toHaveBeenCalledOnce();
 	});
-	it("keeps subagents on one row with direct record clicks and a visible overflow entrance", () => {
+	it("renders subagents on separate rows with direct clicks and a visible overflow entrance", () => {
 		const record: SubagentRecord = {
 			id: "1",
 			agent: "worker",
@@ -79,25 +79,39 @@ describe("workflow floating and inline widgets", () => {
 		};
 		const open = vi.fn();
 		const more = vi.fn();
-		const strip = new SubagentStrip([record], open, more);
-		const line = stripAnsi(strip.render(80)[0]);
-		expect(line).toContain("Review tool titles");
-		expect(line).toContain("4s");
-		strip.handleMouse(mouse(line.indexOf("Review"), 0));
+		const ui = { terminal: { rows: 24 }, requestRender: vi.fn() } as unknown as TUI;
+		const close = vi.fn();
+		const panel = new SubagentPanel(
+			ui,
+			[record, { ...record, id: "2", description: "Verify terminal layout", startedAt: 1 }],
+			open,
+			more,
+			close,
+		);
+		const rows = panel.render(80).map(stripAnsi);
+		expect(rows[1]).toContain("Verify terminal layout");
+		expect(rows[2]).toContain("Review tool titles");
+		expect(rows[2]).toContain("4s");
+		panel.handleMouse(mouse(3, 2));
 		expect(open).toHaveBeenCalledWith(record);
-		const crowded = new SubagentStrip(
+		panel.handleMouse(mouse(76, 0));
+		expect(close).toHaveBeenCalledOnce();
+		const crowded = new SubagentPanel(
+			ui,
 			Array.from({ length: 10 }, (_, index) => ({ ...record, id: String(index) })),
 			open,
 			more,
+			close,
 		);
 		for (const width of [10, 30, 80, 120]) {
-			const rows = crowded.render(width);
-			expect(rows).toHaveLength(1);
-			expect(visibleWidth(rows[0])).toBeLessThanOrEqual(width);
+			const lines = crowded.render(width);
+			expect(lines.length).toBeGreaterThan(1);
+			expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
 		}
-		const row = stripAnsi(crowded.render(80)[0]);
-		expect(row).toMatch(/\+\d+/);
-		crowded.handleMouse(mouse(row.indexOf("+"), 0));
+		const lines = crowded.render(80).map(stripAnsi);
+		const moreRow = lines.findIndex((line) => line.includes("+"));
+		expect(moreRow).toBeGreaterThan(0);
+		crowded.handleMouse(mouse(3, moreRow));
 		expect(more).toHaveBeenCalledOnce();
 	});
 });

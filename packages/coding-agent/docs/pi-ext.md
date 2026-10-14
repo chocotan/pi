@@ -1,6 +1,6 @@
 # pi-ext built-in plugins
 
-pi-ext ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a round composer, a dismissible floating Todo panel, and a single-line Subagents strip above the composer.
+pi-ext ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a round composer and dismissible Todo/Subagents panels stacked at the top right.
 
 ## Configuration directory
 
@@ -50,7 +50,7 @@ Tasks start as `pending`; use `in_progress` during work and `completed` only onc
 
 State is stored as session custom entries and reconstructed from the active branch. Tree navigation restores the tasks belonging to that point; compaction does not erase the task state. In-memory sessions remain in memory.
 
-`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel opens at the top by default without taking keyboard focus. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
+`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel appears at the top right when tasks exist without taking keyboard focus. An empty list stays hidden; deleting the last task closes the panel. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
 
 ## Subagents
 
@@ -73,7 +73,7 @@ Runs are session-owned. Quit, reload, session replacement, and tree navigation s
 
 Provider-reported child usage is recorded through `pi.appendUsage()` once. Reading the result again does not add usage.
 
-Subagents appear on one row above the composer, with descriptions, status icons, and elapsed time. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
+Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
 
 ### Agent definitions
 
@@ -123,7 +123,7 @@ The schema, validation, normalization, response format, and RPC behavior are ada
 ## Terminal behavior
 
 - The conversation uses the full terminal width. There is no application sidebar.
-- Todo is a non-capturing floating panel at the top. Subagents occupy one row above the rounded composer.
+- Todo and Subagents are non-capturing floating panels at the top right. Todo is above Subagents; both hide when empty. Closing Todo removes its space. Subagents use one row per run.
 - Rounded input borders show current run status/time on the left.
 - Token and context statistics use the original Pi footer, including input/output, cache reads/writes, cache hit rate, cost, and right-aligned model/thinking. Directories outside Git repositories have no branch placeholder.
 - Active Thinking content expands while it streams and collapses when the next phase starts. Explicit manual and global visibility choices are respected. Thinking and tool headers remain visible in both states; click again to collapse.
@@ -138,7 +138,7 @@ pi.on("session_start", (_event, ctx) => {
 });
 ```
 
-Clear the widget with `ctx.ui.setWidget("my-plugin.jobs", undefined)`. Components can implement mouse handling. Floating views use `ctx.ui.custom()` with overlay options and can opt out of keyboard focus using `nonCapturing`.
+Clear the widget with `ctx.ui.setWidget("my-plugin.jobs", undefined)`. Components can implement mouse handling. Floating widgets use `{ placement: "floating", order: 10 }`; lower order values appear first and updates do not reorder them. These widgets share a non-capturing overlay without tying plugins to each other. Temporary detail views use `ctx.ui.custom()` with overlay options.
 
 ## Related migration assessment
 
