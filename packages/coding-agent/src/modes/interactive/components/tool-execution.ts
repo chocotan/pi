@@ -54,6 +54,7 @@ export class ToolExecutionComponent extends Container {
 	private toolName: string;
 	private args: any;
 	private expanded = false;
+	private leadingGap = true;
 	private showImages: boolean;
 	private imageWidthCells: number;
 	private outputPad: number;
@@ -213,6 +214,10 @@ export class ToolExecutionComponent extends Container {
 		this.updateDisplay();
 	}
 
+	setLeadingGap(enabled: boolean): void {
+		this.leadingGap = enabled;
+	}
+
 	setOutputPad(outputPad: number): void {
 		this.outputPad = outputPad;
 		this.updateDisplay();
@@ -276,7 +281,7 @@ export class ToolExecutionComponent extends Container {
 				this.imageComponents.length === 0
 			)
 				return [];
-			return [this.renderHeader(width)];
+			return this.leadingGap ? ["", this.renderHeader(width)] : [this.renderHeader(width)];
 		}
 
 		if (this.hasRendererDefinition() && this.getRenderShell() === "self") {
@@ -286,7 +291,7 @@ export class ToolExecutionComponent extends Container {
 				return [];
 			}
 
-			const lines: string[] = [this.renderHeader(width)];
+			const lines: string[] = this.leadingGap ? ["", this.renderHeader(width)] : [this.renderHeader(width)];
 			if (contentLines.length > 0) {
 				lines.push(...contentLines);
 			}
@@ -303,8 +308,7 @@ export class ToolExecutionComponent extends Container {
 			return lines;
 		}
 
-		const body = super.render(width).slice(1);
-		if (body[0] === "") body.shift();
+		const body = super.render(width).slice(this.leadingGap ? 0 : 1);
 		const headerCall = stripAnsi(this.renderHeader(width))
 			.replace(/^.*?[✓✗◌⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*/, "")
 			.split(" · ")[0]
@@ -318,7 +322,8 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
-		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === 0) {
+		const headerRow = this.leadingGap ? 1 : 0;
+		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === headerRow) {
 			if (event.type === "click") this.setExpanded(!this.expanded);
 			return {
 				handled: true,

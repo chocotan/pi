@@ -3614,7 +3614,7 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
-								if (this.pendingTools.size === 0) this.chatContainer.addChild(new Spacer(1));
+								component.setLeadingGap(this.pendingTools.size === 0);
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
 							} else {
@@ -3694,7 +3694,7 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
-					if (this.pendingTools.size === 0) this.chatContainer.addChild(new Spacer(1));
+					component.setLeadingGap(this.pendingTools.size === 0);
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
@@ -4121,6 +4121,7 @@ export class InteractiveMode {
 			if (message.role === "assistant") {
 				this.addMessageToChat(message);
 				// Render tool call components
+				let firstTool = true;
 				for (const content of message.content) {
 					if (content.type === "toolCall") {
 						const component = new ToolExecutionComponent(
@@ -4137,7 +4138,8 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
-						this.chatContainer.addChild(new Spacer(1));
+						component.setLeadingGap(firstTool);
+						firstTool = false;
 						this.chatContainer.addChild(component);
 
 						if (message.stopReason === "aborted" || message.stopReason === "error") {
