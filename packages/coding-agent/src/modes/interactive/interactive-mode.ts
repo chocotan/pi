@@ -639,6 +639,7 @@ export class InteractiveMode {
 		this.headerContainer = new Container();
 		this.loadedResourcesContainer = new Container();
 		this.chatContainer = new Container();
+		this.chatContainer.render = (width) => this.renderChatWithoutToolGaps(width);
 		this.documentContainer = new Container();
 		this.documentContainer.addChild(this.headerContainer);
 		this.documentContainer.addChild(this.loadedResourcesContainer);
@@ -4652,6 +4653,33 @@ export class InteractiveMode {
 		} catch (error) {
 			this.showError(error instanceof Error ? error.message : String(error));
 		}
+	}
+
+	private renderChatWithoutToolGaps(width: number): string[] {
+		const lines: string[] = [];
+		const children = this.chatContainer.children;
+		const isGap = (child: Component) => {
+			const rendered = child.render(width);
+			return rendered.length > 0 && rendered.every((line) => line.trim() === "");
+		};
+		const nextVisible = (start: number) => {
+			for (let index = start; index < children.length; index++) if (!isGap(children[index])) return children[index];
+			return undefined;
+		};
+		let previous: Component | undefined;
+		for (let index = 0; index < children.length; index++) {
+			const child = children[index];
+			if (
+				isGap(child) &&
+				previous instanceof ToolExecutionComponent &&
+				nextVisible(index + 1) instanceof ToolExecutionComponent
+			) {
+				continue;
+			}
+			lines.push(...child.render(width));
+			if (!isGap(child)) previous = child;
+		}
+		return lines;
 	}
 
 	private lastVisibleIsTool(): boolean {
