@@ -3614,7 +3614,7 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
-								component.setLeadingGap(this.pendingTools.size === 0);
+								component.setLeadingGap(this.lastChatChild() instanceof ToolExecutionComponent === false);
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
 							} else {
@@ -3694,7 +3694,7 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
-					component.setLeadingGap(this.pendingTools.size === 0);
+					component.setLeadingGap(this.lastChatChild() instanceof ToolExecutionComponent === false);
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
@@ -4652,6 +4652,10 @@ export class InteractiveMode {
 		} catch (error) {
 			this.showError(error instanceof Error ? error.message : String(error));
 		}
+	}
+
+	private lastChatChild(): Component | undefined {
+		return this.chatContainer.children.at(-1);
 	}
 
 	private renderToolExpansionHint(width: number): string[] {
