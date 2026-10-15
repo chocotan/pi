@@ -4122,6 +4122,7 @@ export class InteractiveMode {
 			if (message.role === "assistant") {
 				this.addMessageToChat(message);
 				// Render tool call components
+				const textBeforeTool = message.content.some((part) => part.type === "text" && part.text.trim());
 				let firstTool = true;
 				for (const content of message.content) {
 					if (content.type === "toolCall") {
@@ -4139,7 +4140,7 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
-						component.setLeadingGap(firstTool && !this.lastVisibleIsTool());
+						component.setLeadingGap(firstTool && textBeforeTool);
 						firstTool = false;
 						this.chatContainer.addChild(component);
 
