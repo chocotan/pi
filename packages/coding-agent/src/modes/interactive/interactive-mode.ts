@@ -3614,7 +3614,7 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
-								component.setLeadingGap(this.lastChatChild() instanceof ToolExecutionComponent === false);
+								component.setLeadingGap(!this.lastVisibleIsTool());
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
 							} else {
@@ -3694,7 +3694,7 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
-					component.setLeadingGap(this.lastChatChild() instanceof ToolExecutionComponent === false);
+					component.setLeadingGap(!this.lastVisibleIsTool());
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
@@ -4138,7 +4138,7 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
-						component.setLeadingGap(firstTool);
+						component.setLeadingGap(firstTool && !this.lastVisibleIsTool());
 						firstTool = false;
 						this.chatContainer.addChild(component);
 
@@ -4654,8 +4654,14 @@ export class InteractiveMode {
 		}
 	}
 
-	private lastChatChild(): Component | undefined {
-		return this.chatContainer.children.at(-1);
+	private lastVisibleIsTool(): boolean {
+		for (let index = this.chatContainer.children.length - 1; index >= 0; index--) {
+			const child = this.chatContainer.children[index];
+			if (child instanceof Spacer) continue;
+			if (child instanceof Text && child.render(80).every((line) => line.trim() === "")) continue;
+			return child instanceof ToolExecutionComponent;
+		}
+		return false;
 	}
 
 	private renderToolExpansionHint(width: number): string[] {
