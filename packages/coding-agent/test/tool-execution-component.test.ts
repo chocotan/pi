@@ -627,7 +627,7 @@ describe("ToolExecutionComponent parity", () => {
 		const toggle = vi.fn();
 		first.onGroupToggle = toggle;
 		first.setGroup("first", 4, false);
-		second.setGroup("member", 4, false);
+		second.setGroup("last", 4, false);
 		expect(stripAnsi(first.render(80)[1])).toContain("4 calls");
 		expect(second.render(80)).toEqual([]);
 		first.handleMouse({
@@ -645,7 +645,9 @@ describe("ToolExecutionComponent parity", () => {
 			clickCount: 1,
 		});
 		expect(toggle).toHaveBeenCalledWith("group-1");
-		second.setGroup("member", 4, true);
+		second.setGroup("last", 4, true);
+		expect(stripAnsi(first.render(80)[1])).toContain("┌");
+		expect(stripAnsi(second.render(80).join("\n"))).toContain("└");
 		expect(second.render(80).join("\n")).toContain("bash");
 	});
 	test("expands a collapsed tool result when clicked", () => {

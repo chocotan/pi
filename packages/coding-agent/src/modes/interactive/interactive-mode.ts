@@ -3615,6 +3615,7 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
+								component.messageBoundary = this.pendingTools.size === 0;
 								component.onGroupToggle = (id) => this.toggleToolGroup(id);
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
@@ -3696,6 +3697,7 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
+					component.messageBoundary = this.pendingTools.size === 0;
 					component.onGroupToggle = (id) => this.toggleToolGroup(id);
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
@@ -4661,16 +4663,14 @@ export class InteractiveMode {
 		let index = 0;
 		while (index < tools.length) {
 			let end = index + 1;
-			while (
-				end < tools.length &&
-				this.chatContainer.children.indexOf(tools[end]) === this.chatContainer.children.indexOf(tools[end - 1]) + 1
-			)
-				end++;
+			while (end < tools.length && !(tools[end - 1].settled && tools[end].messageBoundary)) end++;
 			const group = tools.slice(index, end);
 			const key = group[0].toolCallId;
 			const expanded = group.length < 2 || this.expandedToolGroups.has(key);
 			for (const [offset, tool] of group.entries()) {
-				tool.setGroup(group.length < 2 ? "single" : offset ? "member" : "first", group.length, expanded);
+				const role =
+					group.length < 2 ? "single" : offset === 0 ? "first" : offset === group.length - 1 ? "last" : "middle";
+				tool.setGroup(role, group.length, expanded);
 			}
 			index = end;
 		}

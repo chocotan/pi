@@ -39,6 +39,8 @@ export interface ToolExecutionOptions {
 
 export class ToolExecutionComponent extends Container {
 	readonly toolCallId: string;
+	messageBoundary = false;
+	settled = false;
 	private contentBox: Box;
 	private contentText: Text;
 	private contentTextRegion: MouseRegion;
@@ -54,7 +56,7 @@ export class ToolExecutionComponent extends Container {
 	private toolName: string;
 	private args: any;
 	private expanded = false;
-	private groupRole: "single" | "first" | "member" = "single";
+	private groupRole: "single" | "first" | "middle" | "last" = "single";
 	private groupSize = 1;
 	private groupExpanded = false;
 	onGroupToggle?: (id: string) => void;
@@ -209,6 +211,7 @@ export class ToolExecutionComponent extends Container {
 	): void {
 		this.result = result;
 		this.isPartial = isPartial;
+		if (!isPartial) this.settled = true;
 		this.updateDisplay();
 	}
 
@@ -217,7 +220,7 @@ export class ToolExecutionComponent extends Container {
 		this.updateDisplay();
 	}
 
-	setGroup(role: "single" | "first" | "member", size: number, expanded: boolean): void {
+	setGroup(role: "single" | "first" | "middle" | "last", size: number, expanded: boolean): void {
 		this.groupRole = role;
 		this.groupSize = size;
 		this.groupExpanded = expanded;
@@ -272,14 +275,20 @@ export class ToolExecutionComponent extends Container {
 		const group =
 			this.groupRole === "first" && !this.groupExpanded ? theme.fg("muted", ` · ${this.groupSize} calls`) : "";
 		const marker = this.groupRole === "first" ? (this.groupExpanded ? "▾" : "▸") : this.expanded ? "▾" : "▸";
-		const text = truncateToWidth(`${marker} ${status} ${call}${group}${error}${suffix}`, available, "…");
+		const edge =
+			this.groupRole === "single" ? "" : this.groupRole === "first" ? "┌" : this.groupRole === "last" ? "└" : "│";
+		const text = truncateToWidth(
+			`${edge}${edge ? " " : ""}${marker} ${status} ${call}${group}${error}${suffix}`,
+			available,
+			"…",
+		);
 		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
 		const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
 		return theme.bg(color, line);
 	}
 
 	override render(width: number): string[] {
-		if (this.hideComponent || (this.groupRole === "member" && !this.groupExpanded)) {
+		if (this.hideComponent || ((this.groupRole === "middle" || this.groupRole === "last") && !this.groupExpanded)) {
 			return [];
 		}
 		if (!this.expanded) {
