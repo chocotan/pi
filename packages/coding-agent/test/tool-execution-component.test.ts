@@ -588,19 +588,19 @@ describe("ToolExecutionComponent parity", () => {
 
 	test("uses colored icons instead of tool status words", () => {
 		const component = new ToolExecutionComponent("tool", "status", {}, {}, undefined, createFakeTui(), "/tmp");
-		let row = component.render(80)[1];
+		let row = component.render(80)[0];
 		expect(stripAnsi(row)).toContain("▸ ◌ tool");
 		expect(row).toContain(theme.getFgAnsi("muted"));
 		component.markExecutionStarted();
-		row = component.render(80)[1];
+		row = component.render(80)[0];
 		expect(stripAnsi(row)).toMatch(/▸ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] tool/);
 		expect(row).toContain(theme.getFgAnsi("warning"));
 		component.updateResult({ content: [], isError: false, durationMs: 4200 });
-		row = component.render(80)[1];
+		row = component.render(80)[0];
 		expect(stripAnsi(row)).toContain("▸ ✓ tool · 4.2s");
 		expect(row).toContain(theme.getFgAnsi("success"));
 		component.updateResult({ content: [{ type: "text", text: "bad" }], isError: true });
-		row = component.render(80)[1];
+		row = component.render(80)[0];
 		expect(stripAnsi(row)).toContain("▸ ✗ tool");
 		expect(row).toContain(theme.getFgAnsi("error"));
 		expect(stripAnsi(row)).not.toMatch(/Queued|Running|Ran|Failed|Took/);
@@ -660,9 +660,9 @@ describe("ToolExecutionComponent parity", () => {
 		const contentRow = expandedLines.findIndex((line) => stripAnsi(line).includes("hidden content"));
 		expect(component.handleMouse({ ...event, y: contentRow, height: expandedLines.length })?.handled).not.toBe(true);
 		expect(stripAnsi(component.render(width).join("\n"))).toContain("▾");
-		expect(component.handleMouse({ ...event, y: 1, height: expandedLines.length })?.handled).toBe(true);
+		expect(component.handleMouse({ ...event, y: 0, height: expandedLines.length })?.handled).toBe(true);
 		const collapsedLines = component.render(width);
-		expect(stripAnsi(collapsedLines[1])).toContain("▸ ✓ read notes.txt");
+		expect(stripAnsi(collapsedLines[0])).toContain("▸ ✓ read notes.txt");
 		expect(stripAnsi(collapsedLines.join("\n"))).not.toContain("hidden content");
 	});
 

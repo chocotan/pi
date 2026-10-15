@@ -304,6 +304,7 @@ export class ToolExecutionComponent extends Container {
 		}
 
 		const body = super.render(width).slice(1);
+		if (body[0] === "") body.shift();
 		const headerCall = stripAnsi(this.renderHeader(width))
 			.replace(/^.*?[✓✗◌⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*/, "")
 			.split(" · ")[0]
