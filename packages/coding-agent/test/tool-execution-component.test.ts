@@ -225,7 +225,9 @@ describe("ToolExecutionComponent parity", () => {
 
 	// Issue #9628: keep short durations precise and make long shell durations readable.
 	test.each([
-		{ ms: 0, formatted: "0.0s" },
+		{ ms: 0, formatted: "" },
+		{ ms: 42, formatted: "42ms" },
+		{ ms: 999, formatted: "999ms" },
 		{ ms: 4_200, formatted: "4.2s" },
 		{ ms: 59_900, formatted: "59.9s" },
 		{ ms: 59_999, formatted: "60.0s" },
@@ -260,8 +262,14 @@ describe("ToolExecutionComponent parity", () => {
 		vi.advanceTimersByTime(1_000);
 		component.invalidate();
 		expect(stripAnsi(component.render(120).join("\n"))).toBe(completed);
-		expect(running).toContain(formatted);
-		expect(completed).toContain(formatted);
+		if (formatted) {
+			expect(running).toContain(formatted);
+			expect(completed).toContain(formatted);
+		} else {
+			expect(completed).not.toMatch(/·\s*$/);
+			expect(completed).not.toContain("0ms");
+			expect(completed).not.toContain("0.0s");
+		}
 		expect(completed).not.toContain("Took");
 	});
 
@@ -674,8 +682,9 @@ describe("ToolExecutionComponent parity", () => {
 		};
 		expect(component.handleMouse(event)?.handled).toBe(true);
 		const expandedLines = component.render(width);
-		expect(stripAnsi(expandedLines[1])).toContain("▾ ✓ read notes.txt");
-		expect(stripAnsi(expandedLines.join("\n"))).toContain("hidden content");
+		const expandedText = stripAnsi(expandedLines.join("\n"));
+		expect(expandedText.match(/read notes.txt/g)?.length ?? 0).toBe(1);
+		expect(expandedText).toContain("hidden content");
 		expect(component.handleMouse({ ...event, y: 1, height: expandedLines.length })?.handled).toBe(true);
 		const collapsedLines = component.render(width);
 		expect(stripAnsi(collapsedLines[1])).toContain("▸ ✓ read notes.txt");

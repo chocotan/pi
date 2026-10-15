@@ -316,7 +316,17 @@ export class ToolExecutionComponent extends Container {
 			return lines;
 		}
 
-		return ["", this.renderHeader(width), ...super.render(width).slice(1)];
+		const body = super.render(width).slice(1);
+		const headerCall = stripAnsi(this.renderHeader(width))
+			.replace(/^.*?[✓✗◌⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*/, "")
+			.split(" · ")[0]
+			.trim();
+		const duplicate = body.findIndex((line) => {
+			const plain = stripAnsi(line).trim();
+			return plain.length > 0 && headerCall.startsWith(plain);
+		});
+		if (duplicate >= 0 && duplicate < 3) body.splice(duplicate, 1);
+		return ["", this.renderHeader(width), ...body];
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {

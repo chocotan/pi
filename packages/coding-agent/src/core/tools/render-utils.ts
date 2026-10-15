@@ -98,6 +98,8 @@ export function formatToolCallWithArgs(title: string, args: unknown, theme: Them
 
 /** Duration as `4.2s` below a minute, then `1m 30s` and `2h 3m 4s`. */
 export function formatToolDuration(ms: number): string {
+	if (ms <= 0) return "";
+	if (ms < 1000) return `${Math.round(ms)}ms`;
 	const seconds = ms / 1000;
 	if (seconds < 60) return `${seconds.toFixed(1)}s`;
 
