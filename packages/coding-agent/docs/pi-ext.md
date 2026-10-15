@@ -73,7 +73,7 @@ Runs are session-owned. Quit, reload, session replacement, and tree navigation s
 
 Provider-reported child usage is recorded through `pi.appendUsage()` once. Reading the result again does not add usage.
 
-Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Consecutive tool calls collapse behind the first row; click it to expand the group. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
+Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Tool calls stay on separate rows. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
 
 ### Agent definitions
 

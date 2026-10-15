@@ -605,50 +605,20 @@ describe("ToolExecutionComponent parity", () => {
 		expect(row).toContain(theme.getFgAnsi("error"));
 		expect(stripAnsi(row)).not.toMatch(/Queued|Running|Ran|Failed|Took/);
 	});
-	test("collapses extra calls behind the first row and expands the group", () => {
-		const first = new ToolExecutionComponent(
-			"read",
-			"group-1",
-			{ path: "a" },
-			{},
-			undefined,
-			createFakeTui(),
-			"/tmp",
-		);
+	test("renders every tool call independently", () => {
+		const first = new ToolExecutionComponent("read", "one", { path: "a" }, {}, undefined, createFakeTui(), "/tmp");
 		const second = new ToolExecutionComponent(
 			"bash",
-			"group-2",
+			"two",
 			{ command: "ls" },
 			{},
 			undefined,
 			createFakeTui(),
 			"/tmp",
 		);
-		const toggle = vi.fn();
-		first.onGroupToggle = toggle;
-		first.setGroup("first", 4, false);
-		second.setGroup("last", 4, false);
-		expect(stripAnsi(first.render(80)[1])).toContain("4 calls");
-		expect(second.render(80)).toEqual([]);
-		first.handleMouse({
-			type: "click",
-			button: "left",
-			x: 1,
-			y: 1,
-			screenX: 1,
-			screenY: 1,
-			width: 80,
-			height: 3,
-			shift: false,
-			alt: false,
-			ctrl: false,
-			clickCount: 1,
-		});
-		expect(toggle).toHaveBeenCalledWith("group-1");
-		second.setGroup("last", 4, true);
-		expect(stripAnsi(first.render(80)[1])).toContain("┌");
-		expect(stripAnsi(second.render(80).join("\n"))).toContain("└");
-		expect(second.render(80).join("\n")).toContain("bash");
+		expect(stripAnsi(first.render(80).join("\n"))).toContain("read");
+		expect(stripAnsi(second.render(80).join("\n"))).toContain("bash");
+		expect(stripAnsi(first.render(80).join("\n"))).not.toMatch(/calls|┌|└/);
 	});
 	test("expands a collapsed tool result when clicked", () => {
 		const component = new ToolExecutionComponent(
