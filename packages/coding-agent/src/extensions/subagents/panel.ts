@@ -6,6 +6,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { ActivityDot } from "../../modes/interactive/components/activity-dot.ts";
 import { highlightHover } from "../../modes/interactive/components/hover-style.ts";
 import { theme } from "../../modes/interactive/theme/theme.ts";
 import type { SubagentRecord } from "./index.ts";
@@ -20,6 +21,7 @@ export class SubagentPanel implements Component {
 	private rows: Array<SubagentRecord | undefined> = [];
 	private width = 0;
 	private hoveredRow: number | undefined;
+	private spinner?: ActivityDot;
 	constructor(
 		ui: TUI,
 		records: readonly SubagentRecord[],
@@ -34,6 +36,10 @@ export class SubagentPanel implements Component {
 		this.close = close;
 	}
 	invalidate(): void {}
+	dispose(): void {
+		this.spinner?.dispose();
+		this.spinner = undefined;
+	}
 	render(width: number): string[] {
 		this.width = width;
 		this.rows = [];
@@ -47,6 +53,7 @@ export class SubagentPanel implements Component {
 		const active = sorted.filter((record) => !finished(record));
 		const records = sorted.length > 5 ? (active.length ? active : sorted.slice(0, 1)) : sorted;
 		const hidden = sorted.length - records.length;
+		if (!records.some((record) => ["running", "queued"].includes(record.status))) this.dispose();
 		const current = records.find((record) => ["running", "queued"].includes(record.status)) ?? records[0];
 		const heading = current?.description || current?.agent || "Subagents";
 		const title = truncateToWidth(`${heading} · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
@@ -66,14 +73,11 @@ export class SubagentPanel implements Component {
 						: ["running", "queued"].includes(record.status)
 							? "accent"
 							: "muted";
-			const icon =
-				record.status === "completed"
-					? "✓"
-					: record.status === "error"
-						? "✗"
-						: record.status === "running"
-							? "⠋"
-							: "◌";
+			let icon = theme.fg(color, "●");
+			if (["running", "queued"].includes(record.status)) {
+				this.spinner ??= new ActivityDot(this.ui);
+				icon = this.spinner.renderDot();
+			}
 			const end =
 				record.finishedAt ??
 				(record.status === "running" || record.status === "queued" ? Date.now() : record.startedAt);
@@ -83,11 +87,7 @@ export class SubagentPanel implements Component {
 				Math.max(0, inner - duration.length - 2),
 				"…",
 			);
-			const text = truncateToWidth(
-				`${theme.fg(color, icon)} ${theme.bold(description)}${theme.fg("muted", duration)}`,
-				inner,
-				"",
-			);
+			const text = truncateToWidth(`${icon} ${theme.bold(description)}${theme.fg("muted", duration)}`, inner, "");
 			lines.push(`│ ${text}${" ".repeat(Math.max(0, inner - visibleWidth(text)))} │`);
 			this.rows.push(record);
 		}

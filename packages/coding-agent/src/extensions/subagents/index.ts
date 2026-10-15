@@ -22,6 +22,7 @@ import { raceWithAbortSignal } from "../../utils/abort.ts";
 import { readTaskState, TASK_RUN_EVENT } from "../tasks/index.ts";
 import { discoverAgentDefinitions } from "./definitions.ts";
 import { SubagentPanel } from "./panel.ts";
+import { renderSubagentCall } from "./renderers.ts";
 import { SubagentDetailView } from "./view.ts";
 
 export const SUBAGENT_ENTRY = "pi-ext.subagent";
@@ -540,6 +541,17 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 				"Delegate a bounded task to an isolated subagent. Defaults to background execution; completion is delivered automatically. Four runs execute at a time; excess work queues. Tools and permissions are inherited without expanding the parent loadout.",
 			promptSnippet: "Delegate bounded work to an isolated subagent",
 			parameters: agentParams,
+			renderCall: (args, theme, ctx) =>
+				renderSubagentCall(
+					"Agent",
+					args.description?.trim() ||
+						(args.resume ? records.get(args.resume)?.description : undefined) ||
+						args.subagent_type ||
+						"worker",
+					args,
+					theme,
+					ctx.expanded,
+				),
 			async execute(_id, args, signal, _update, ctx) {
 				signal?.throwIfAborted();
 				const singleUse = ctx.mode === "print" || ctx.mode === "json";
@@ -591,6 +603,16 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			description:
 				"Read an agent result. Set wait to join a queued or running agent; do not poll while automatic completion is pending. Full output is preserved in the child session.",
 			parameters: Type.Object({ agent_id: Type.String(), wait: Type.Optional(Type.Boolean({ default: false })) }),
+			renderCall: (args, theme, ctx) => {
+				const record = records.get(args.agent_id);
+				return renderSubagentCall(
+					"get_subagent_result",
+					record?.description || record?.agent || "Subagent result",
+					args,
+					theme,
+					ctx.expanded,
+				);
+			},
 			annotations: { readOnlyHint: true },
 			async execute(_id, args, signal) {
 				const record = records.get(args.agent_id);

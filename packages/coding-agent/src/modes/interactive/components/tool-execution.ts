@@ -21,16 +21,17 @@ export type { ToolRenderers };
 import {
 	formatToolCallWithArgs,
 	getTextOutput as getRenderedTextOutput,
+	getToolCallDescription,
 	toolTimerText,
 } from "../../../core/tools/render-utils.ts";
 import { stripAnsi } from "../../../utils/ansi.ts";
 import { ensurePngTranscoder } from "../../../utils/image-convert.ts";
 import { theme } from "../theme/theme.ts";
+import { ActivityDot } from "./activity-dot.ts";
 import { highlightHover } from "./hover-style.ts";
 import { keyHint } from "./keybinding-hints.ts";
 
 const FALLBACK_PREVIEW_LINES = 10;
-const TOOL_SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 export interface ToolExecutionOptions {
 	showImages?: boolean;
@@ -77,6 +78,7 @@ export class ToolExecutionComponent extends Container {
 	private toolName: string;
 	private args: any;
 	private expanded = false;
+	private spinner?: ActivityDot;
 	private headerHovered = false;
 	private readonly leadingSpacer = new Spacer(1);
 	private showImages: boolean;
@@ -235,6 +237,10 @@ export class ToolExecutionComponent extends Container {
 	): void {
 		this.result = result;
 		this.isPartial = isPartial;
+		if (!isPartial || result.isError) {
+			this.spinner?.dispose();
+			this.spinner = undefined;
+		}
 		this.updateDisplay();
 	}
 
@@ -268,22 +274,25 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	dispose(): void {
+		this.spinner?.dispose();
+		this.spinner = undefined;
 		toolTimerText(this.getRenderContext(undefined), false);
 	}
 
 	private renderHeader(width: number): string {
 		const pad = Math.min(this.outputPad, Math.max(0, Math.floor((width - 1) / 2)));
 		const available = Math.max(1, width - 2 * pad);
-		const status = this.result?.isError
-			? theme.fg("error", "✗")
-			: this.isPartial
-				? this.executionStarted
-					? theme.fg("warning", TOOL_SPINNER_FRAMES[Math.floor(Date.now() / 80) % TOOL_SPINNER_FRAMES.length])
-					: theme.fg("muted", "◌")
-				: theme.fg("success", "✓");
+		let status = theme.fg(this.result?.isError ? "error" : "success", "●");
+		if (this.isPartial && !this.result?.isError) {
+			this.spinner ??= new ActivityDot(this.ui);
+			status = this.spinner.renderDot();
+		}
 		const timing = toolTimerText(this.getRenderContext(undefined), this.isPartial);
 		const suffix = timing ? ` · ${timing}` : "";
-		const error = this.result?.isError ? ` · ${theme.fg("toolOutput", this.getTextOutput().split("\n")[0])}` : "";
+		const recordedError: unknown = this.result?.details?.error;
+		const errorText =
+			typeof recordedError === "string" ? recordedError.split("\n")[0] : this.getTextOutput().split("\n")[0];
+		const error = this.result?.isError ? ` · ${theme.fg("toolOutput", errorText)}` : "";
 		const budget = Math.max(1, available - visibleWidth(status) - 3 - visibleWidth(suffix) - visibleWidth(error));
 		const renderedCall =
 			(this.callRendererComponent ?? this.createCallFallback())
@@ -291,7 +300,11 @@ export class ToolExecutionComponent extends Container {
 				.find((line) => stripAnsi(line).trim()) ?? this.toolName;
 		const plainCall = stripAnsi(renderedCall);
 		const leading = visibleWidth(plainCall) - visibleWidth(plainCall.trimStart());
-		const call = truncateToWidth(sliceByColumn(renderedCall, leading, visibleWidth(plainCall.trim())), budget, "…");
+		const description = getToolCallDescription(this.args);
+		const title = description
+			? `${theme.fg("toolTitle", theme.bold(this.toolName))} ${theme.fg("accent", description)}`
+			: sliceByColumn(renderedCall, leading, visibleWidth(plainCall.trim()));
+		const call = truncateToWidth(title, budget, "…");
 		const marker = this.expanded ? "▾" : "▸";
 		const text = truncateToWidth(`${marker} ${status} ${call}${error}${suffix}`, available, "…");
 		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
@@ -364,7 +377,7 @@ export class ToolExecutionComponent extends Container {
 				try {
 					const component = callRenderer(this.args, theme, this.getRenderContext(this.callRendererComponent));
 					this.callRendererComponent = component;
-					renderContainer.addChild(this.createBodyRegion(component, true));
+					renderContainer.addChild(this.createBodyRegion(component, !getToolCallDescription(this.args)));
 					hasContent = true;
 				} catch {
 					this.callRendererComponent = undefined;

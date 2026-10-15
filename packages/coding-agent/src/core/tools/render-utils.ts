@@ -76,6 +76,12 @@ const COLLAPSED_ARGS_CHARS = 100;
  * pairs on the title line, cut to {@link COLLAPSED_ARGS_CHARS}. Expanded, each is a `key: value`
  * line below the title, with strings shown raw and continuation lines indented.
  */
+export function getToolCallDescription(args: unknown): string | undefined {
+	if (!args || typeof args !== "object" || !("description" in args) || typeof args.description !== "string")
+		return undefined;
+	return sanitizeBinaryOutput(stripAnsi(args.description)).replace(/\s+/g, " ").trim() || undefined;
+}
+
 export function formatToolCallWithArgs(title: string, args: unknown, theme: Theme, expanded: boolean): string {
 	const header = theme.fg("toolTitle", theme.bold(title));
 	if (args == null) return header;

@@ -31,6 +31,9 @@ const replaceEditSchema = Type.Object(
 
 const editSchema = Type.Object(
 	{
+		description: Type.Optional(
+			Type.String({ description: "Short purpose of this invocation shown in the tool title" }),
+		),
 		path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
 		edits: Type.Array(replaceEditSchema, {
 			description:

@@ -24,6 +24,7 @@ export function relativizeFindResultPath(
 }
 
 const findSchema = Type.Object({
+	description: Type.Optional(Type.String({ description: "Short purpose of this invocation shown in the tool title" })),
 	pattern: Type.String({
 		description: "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'",
 	}),

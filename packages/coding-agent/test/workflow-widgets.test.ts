@@ -4,7 +4,7 @@ import type { SubagentRecord } from "../src/extensions/subagents/index.ts";
 import { SubagentPanel } from "../src/extensions/subagents/panel.ts";
 import type { TaskState } from "../src/extensions/tasks/index.ts";
 import { TodoPanel } from "../src/extensions/tasks/view.ts";
-import { initTheme } from "../src/modes/interactive/theme/theme.ts";
+import { initTheme, theme } from "../src/modes/interactive/theme/theme.ts";
 import { stripAnsi } from "../src/utils/ansi.ts";
 
 const mouse = (x: number, y: number): TuiMouseEvent => ({
@@ -84,6 +84,48 @@ describe("workflow floating and inline widgets", () => {
 		expect(text).toContain("Open 0");
 		panel.handleMouse(mouse(76, 0));
 		expect(close).toHaveBeenCalledOnce();
+	});
+	it("animates queued and running subagents, then stops on a settled status", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+		const requestRender = vi.fn();
+		const record: SubagentRecord = {
+			id: "dot",
+			agent: "worker",
+			description: "Check disk",
+			prompt: "Check",
+			status: "queued",
+			model: "faux/local",
+			thinking: "off",
+			startedAt: 0,
+			output: "",
+		};
+		const panel = new SubagentPanel(
+			{ terminal: { rows: 24 }, requestRender } as unknown as TUI,
+			[record],
+			vi.fn(),
+			vi.fn(),
+			vi.fn(),
+		);
+		try {
+			const queued = stripAnsi(panel.render(80)[1]);
+			expect(queued).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+			vi.advanceTimersByTime(80);
+			expect(requestRender).toHaveBeenCalled();
+			expect(stripAnsi(panel.render(80)[1])).not.toBe(queued);
+			record.status = "running";
+			expect(stripAnsi(panel.render(80)[1])).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+			record.status = "completed";
+			record.finishedAt = 80;
+			expect(stripAnsi(panel.render(80)[1])).toContain("● Check disk");
+			expect(panel.render(80)[1]).toContain(theme.getFgAnsi("success"));
+			expect(vi.getTimerCount()).toBe(0);
+			record.status = "error";
+			expect(panel.render(80)[1]).toContain(theme.getFgAnsi("error"));
+		} finally {
+			panel.dispose();
+			vi.useRealTimers();
+		}
 	});
 	it("renders subagents on separate rows with direct clicks and a visible overflow entrance", () => {
 		const record: SubagentRecord = {

@@ -589,21 +589,68 @@ describe("ToolExecutionComponent parity", () => {
 	test("uses colored icons instead of tool status words", () => {
 		const component = new ToolExecutionComponent("tool", "status", {}, {}, undefined, createFakeTui(), "/tmp");
 		let row = component.render(80)[1];
-		expect(stripAnsi(row)).toContain("▸ ◌ tool");
-		expect(row).toContain(theme.getFgAnsi("muted"));
+		expect(stripAnsi(row)).toMatch(/▸ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] tool/);
+		expect(row).toContain(theme.getFgAnsi("warning"));
 		component.markExecutionStarted();
 		row = component.render(80)[1];
 		expect(stripAnsi(row)).toMatch(/▸ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] tool/);
 		expect(row).toContain(theme.getFgAnsi("warning"));
 		component.updateResult({ content: [], isError: false, durationMs: 4200 });
 		row = component.render(80)[1];
-		expect(stripAnsi(row)).toContain("▸ ✓ tool · 4.2s");
+		expect(stripAnsi(row)).toContain("▸ ● tool · 4.2s");
 		expect(row).toContain(theme.getFgAnsi("success"));
 		component.updateResult({ content: [{ type: "text", text: "bad" }], isError: true });
 		row = component.render(80)[1];
-		expect(stripAnsi(row)).toContain("▸ ✗ tool");
+		expect(stripAnsi(row)).toContain("▸ ● tool");
 		expect(row).toContain(theme.getFgAnsi("error"));
 		expect(stripAnsi(row)).not.toMatch(/Queued|Running|Ran|Failed|Took/);
+	});
+	test("uses a purpose title while preserving the exact shell command when expanded", () => {
+		const command = "df -hT -x tmpfs; printf 'full command details'";
+		const component = new ToolExecutionComponent(
+			"bash",
+			"purpose",
+			{ command, timeout: 10, description: "Check disk space" },
+			{},
+			createBashToolDefinition("/tmp"),
+			createFakeTui(),
+			"/tmp",
+		);
+		component.updateResult({ content: [{ type: "text", text: "Filesystem" }], isError: false, durationMs: 24 });
+		const collapsed = stripAnsi(component.render(120).join("\n"));
+		expect(collapsed).toContain("bash Check disk space");
+		expect(collapsed).not.toContain("df -hT");
+		expect(collapsed).not.toContain("timeout");
+		component.setExpanded(true);
+		const expanded = stripAnsi(component.render(120).join("\n"));
+		expect(expanded).toContain(command);
+		expect(expanded).toContain("Filesystem");
+		expect(expanded.match(/Check disk space/g)).toHaveLength(1);
+		component.dispose();
+	});
+	test("animates queued and running dots and stops the timer on completion", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+		const requestRender = vi.fn();
+		const component = new ToolExecutionComponent(
+			"tool",
+			"animation",
+			{},
+			{},
+			undefined,
+			{ requestRender } as unknown as TUI,
+			"/tmp",
+		);
+		const queued = stripAnsi(component.render(80)[1]);
+		vi.advanceTimersByTime(80);
+		expect(requestRender).toHaveBeenCalled();
+		expect(stripAnsi(component.render(80)[1])).not.toBe(queued);
+		component.markExecutionStarted();
+		expect(stripAnsi(component.render(80)[1])).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/);
+		component.updateResult({ content: [], isError: false });
+		expect(stripAnsi(component.render(80)[1])).toContain("●");
+		expect(vi.getTimerCount()).toBe(0);
+		component.dispose();
 	});
 	test("renders every tool call independently", () => {
 		const first = new ToolExecutionComponent("read", "one", { path: "a" }, {}, undefined, createFakeTui(), "/tmp");
@@ -662,7 +709,7 @@ describe("ToolExecutionComponent parity", () => {
 		expect(stripAnsi(component.render(width).join("\n"))).toContain("▾");
 		expect(component.handleMouse({ ...event, y: 1, height: expandedLines.length })?.handled).toBe(true);
 		const collapsedLines = component.render(width);
-		expect(stripAnsi(collapsedLines[1])).toContain("▸ ✓ read notes.txt");
+		expect(stripAnsi(collapsedLines[1])).toContain("▸ ● read notes.txt");
 		expect(stripAnsi(collapsedLines.join("\n"))).not.toContain("hidden content");
 	});
 

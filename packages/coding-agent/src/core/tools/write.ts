@@ -9,6 +9,7 @@ import { writeRenderers } from "./renderers/write.ts";
 import { wrapToolDefinition } from "./tool-definition-wrapper.ts";
 
 const writeSchema = Type.Object({
+	description: Type.Optional(Type.String({ description: "Short purpose of this invocation shown in the tool title" })),
 	path: Type.String({ description: "Path to the file to write (relative or absolute)" }),
 	content: Type.String({ description: "Content to write to the file" }),
 });

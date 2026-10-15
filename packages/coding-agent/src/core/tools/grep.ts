@@ -19,6 +19,7 @@ import {
 } from "./truncate.ts";
 
 const grepSchema = Type.Object({
+	description: Type.Optional(Type.String({ description: "Short purpose of this invocation shown in the tool title" })),
 	pattern: Type.String({ description: "Search pattern (regex or literal string)" }),
 	path: Type.Optional(Type.String({ description: "Directory or file to search (default: current directory)" })),
 	glob: Type.Optional(Type.String({ description: "Filter files by glob pattern, e.g. '*.ts' or '**/*.spec.ts'" })),
