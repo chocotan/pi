@@ -276,7 +276,7 @@ export class ToolExecutionComponent extends Container {
 				this.imageComponents.length === 0
 			)
 				return [];
-			return ["", this.renderHeader(width)];
+			return [this.renderHeader(width)];
 		}
 
 		if (this.hasRendererDefinition() && this.getRenderShell() === "self") {
@@ -286,7 +286,7 @@ export class ToolExecutionComponent extends Container {
 				return [];
 			}
 
-			const lines: string[] = ["", this.renderHeader(width)];
+			const lines: string[] = [this.renderHeader(width)];
 			if (contentLines.length > 0) {
 				lines.push(...contentLines);
 			}
@@ -313,11 +313,11 @@ export class ToolExecutionComponent extends Container {
 			return plain.length > 0 && headerCall.startsWith(plain);
 		});
 		if (duplicate >= 0 && duplicate < 3) body.splice(duplicate, 1);
-		return ["", this.renderHeader(width), ...body];
+		return [this.renderHeader(width), ...body];
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
-		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === 1) {
+		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === 0) {
 			if (event.type === "click") this.setExpanded(!this.expanded);
 			return {
 				handled: true,
@@ -331,13 +331,12 @@ export class ToolExecutionComponent extends Container {
 				},
 			};
 		}
-		if (!this.expanded || event.y < 2) return undefined;
-		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self")
-			return super.handleMouse({ ...event, y: event.y - 1, height: event.height - 1 });
-		if (event.y >= this.selfRenderHeight + 2) return undefined;
+		if (!this.expanded || event.y < 1) return undefined;
+		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self") return super.handleMouse(event);
+		if (event.y >= this.selfRenderHeight + 1) return undefined;
 		return this.selfRenderContainer.handleMouse({
 			...event,
-			y: event.y - 2,
+			y: event.y - 1,
 			height: this.selfRenderHeight,
 		});
 	}
