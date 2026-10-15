@@ -138,7 +138,7 @@ describe("workflow floating and inline widgets", () => {
 			close,
 		);
 		const mixedText = stripAnsi(mixed.render(80).join("\n"));
-		expect(mixedText).toContain("Subagents · 3/7");
+		expect(mixedText).toContain("Running 0 · 3/7");
 		expect(mixedText).not.toContain("Done 0");
 		expect(mixedText).toContain("Running 0");
 		const crowded = new SubagentPanel(

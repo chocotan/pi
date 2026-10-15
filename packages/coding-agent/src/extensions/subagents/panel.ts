@@ -45,7 +45,9 @@ export class SubagentPanel implements Component {
 		const active = sorted.filter((record) => !finished(record));
 		const records = sorted.length > 5 ? (active.length ? active : sorted.slice(0, 1)) : sorted;
 		const hidden = sorted.length - records.length;
-		const title = truncateToWidth(`Subagents · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
+		const current = records.find((record) => ["running", "queued"].includes(record.status)) ?? records[0];
+		const heading = current?.description || current?.agent || "Subagents";
+		const title = truncateToWidth(`${heading} · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
 		const lines = [
 			`╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}[x] ╮`,
 		];
