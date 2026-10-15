@@ -4680,16 +4680,8 @@ export class InteractiveMode {
 		if (expanded === this.toolOutputExpanded) return;
 
 		this.toolOutputExpanded = expanded;
-		const activeHeader = this.customHeader ?? this.builtInHeader;
-		if (isExpandable(activeHeader)) {
-			activeHeader.setExpanded(expanded);
-		}
-		for (const container of [this.loadedResourcesContainer, this.chatContainer]) {
-			for (const child of container.children) {
-				if (isExpandable(child)) {
-					child.setExpanded(expanded);
-				}
-			}
+		for (const child of this.chatContainer.children) {
+			if (child instanceof ToolExecutionComponent) child.setExpanded(expanded);
 		}
 		this.showStatus(`Tool output: ${expanded ? "expanded" : "collapsed"}`);
 	}
