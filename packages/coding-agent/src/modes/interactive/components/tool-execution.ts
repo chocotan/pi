@@ -174,8 +174,8 @@ export class ToolExecutionComponent extends Container {
 
 	private createResultRegion(component: Component): MouseRegion {
 		return new MouseRegion(component, (event) => {
-			if (!this.result || event.type !== "click" || event.button !== "left") return undefined;
-			this.setExpanded(!this.expanded);
+			if (!this.result || this.expanded || event.type !== "click" || event.button !== "left") return undefined;
+			this.setExpanded(true);
 			return { handled: true };
 		});
 	}

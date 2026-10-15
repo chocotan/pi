@@ -685,6 +685,9 @@ describe("ToolExecutionComponent parity", () => {
 		const expandedText = stripAnsi(expandedLines.join("\n"));
 		expect(expandedText.match(/read notes.txt/g)?.length ?? 0).toBe(1);
 		expect(expandedText).toContain("hidden content");
+		const contentRow = expandedLines.findIndex((line) => stripAnsi(line).includes("hidden content"));
+		expect(component.handleMouse({ ...event, y: contentRow, height: expandedLines.length })?.handled).not.toBe(true);
+		expect(stripAnsi(component.render(width).join("\n"))).toContain("▾");
 		expect(component.handleMouse({ ...event, y: 1, height: expandedLines.length })?.handled).toBe(true);
 		const collapsedLines = component.render(width);
 		expect(stripAnsi(collapsedLines[1])).toContain("▸ ✓ read notes.txt");
