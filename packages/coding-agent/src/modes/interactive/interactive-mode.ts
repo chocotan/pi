@@ -3614,6 +3614,7 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
+								if (this.pendingTools.size === 0) this.chatContainer.addChild(new Spacer(1));
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
 							} else {
@@ -3693,6 +3694,7 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
+					if (this.pendingTools.size === 0) this.chatContainer.addChild(new Spacer(1));
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
@@ -4135,6 +4137,7 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
+						this.chatContainer.addChild(new Spacer(1));
 						this.chatContainer.addChild(component);
 
 						if (message.stopReason === "aborted" || message.stopReason === "error") {
