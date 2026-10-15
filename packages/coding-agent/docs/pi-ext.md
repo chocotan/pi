@@ -127,7 +127,7 @@ The schema, validation, normalization, response format, and RPC behavior are ada
 - Rounded input borders show current run status/time on the left.
 - Token and context statistics use the original Pi footer, including input/output, cache reads/writes, cache hit rate, cost, and right-aligned model/thinking. Directories outside Git repositories have no branch placeholder.
 - Active Thinking content expands while it streams and collapses when the next phase starts. Explicit manual and global visibility choices are respected. Thinking and tool headers remain visible in both states; click again to collapse.
-- Tool states use icons: muted `◌` for waiting, a spinner while running, green `✓` for success, and red `✗` for failure. Durations show numbers without `Took` or `Elapsed`. A single tool expansion shortcut follows the transcript.
+- Tool states use icons: muted `◌` for waiting, a spinner while running, green `✓` for success, and red `✗` for failure. Durations appear once in the title, use milliseconds below one second, and hide zero. Expanded output follows its title directly. Consecutive visible tool calls have no blank rows between them; the first tool after text keeps one leading blank row. This layout applies to both the parent transcript and subagent details. A single tool expansion shortcut follows the transcript.
 - User messages keep the theme's default user background.
 
 Plugins can add composer widgets independently:

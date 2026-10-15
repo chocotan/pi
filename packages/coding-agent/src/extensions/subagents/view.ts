@@ -2,7 +2,6 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage, ToolResultMessage } from "@earendil-works/pi-ai";
 import {
 	type Component,
-	Container,
 	getKeybindings,
 	Text,
 	type TUI,
@@ -16,6 +15,7 @@ import { createAllToolRenderers } from "../../core/tools/renderers/index.ts";
 import { AssistantMessageComponent } from "../../modes/interactive/components/assistant-message.ts";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.ts";
 import { ToolExecutionComponent } from "../../modes/interactive/components/tool-execution.ts";
+import { ToolTranscriptContainer } from "../../modes/interactive/components/tool-transcript.ts";
 import { UserMessageComponent } from "../../modes/interactive/components/user-message.ts";
 import { theme } from "../../modes/interactive/theme/theme.ts";
 
@@ -45,7 +45,7 @@ export class SubagentDetailView implements Component {
 	private readonly getSnapshot: () => SubagentDetailSnapshot;
 	private readonly done: () => void;
 	private readonly keys = getKeybindings();
-	private readonly transcript = new Container();
+	private readonly transcript = new ToolTranscriptContainer();
 	private readonly entries = new Map<string, Entry>();
 	private scrollTop = 0;
 	private contentHeight = 0;

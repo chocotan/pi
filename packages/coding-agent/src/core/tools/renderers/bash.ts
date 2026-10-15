@@ -12,7 +12,7 @@ import { VisualLinePreview } from "../../../modes/interactive/components/visual-
 import { theme } from "../../../modes/interactive/theme/theme.ts";
 import type { ToolDefinition, ToolRenderResultOptions } from "../../extensions/types.ts";
 import type { BashToolDetails } from "../bash.ts";
-import { getTextOutput, invalidArgText, startToolTimer, str, toolTimerText } from "../render-utils.ts";
+import { getTextOutput, invalidArgText, startToolTimer, str } from "../render-utils.ts";
 import { DEFAULT_MAX_BYTES, formatSize } from "../truncate.ts";
 
 const BASH_PREVIEW_LINES = 5;
@@ -32,7 +32,6 @@ function rebuildBashResultRenderComponent(
 	},
 	options: ToolRenderResultOptions,
 	showImages: boolean,
-	timerText: string | undefined,
 ): void {
 	component.clear();
 
@@ -85,8 +84,6 @@ function rebuildBashResultRenderComponent(
 		}
 		component.addChild(new Text(`\n${theme.fg("warning", `[${warnings.join(". ")}]`)}`, 0, 0));
 	}
-
-	if (timerText) component.addChild(new Text(`\n${theme.fg("muted", timerText)}`, 0, 0));
 }
 
 /** Shell renderers are shared by bash and powershell, which differ only in the prompt they display. */
@@ -99,9 +96,8 @@ export function createShellRenderers(prompt: string): Pick<ToolDefinition<any, a
 			return text;
 		},
 		renderResult(result, options, _theme, context) {
-			const timerText = toolTimerText(context, options.isPartial);
 			const component = (context.lastComponent as Container | undefined) ?? new Container();
-			rebuildBashResultRenderComponent(component, result as any, options, context.showImages, timerText);
+			rebuildBashResultRenderComponent(component, result as any, options, context.showImages);
 			component.invalidate();
 			return component;
 		},

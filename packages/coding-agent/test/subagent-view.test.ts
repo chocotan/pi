@@ -80,6 +80,64 @@ describe("SubagentDetailView", () => {
 		view.handleInput("\x1b");
 		expect(done).toHaveBeenCalledTimes(2);
 	});
+	it("uses the same compact expanded tool layout inside the child transcript", () => {
+		const current: SubagentDetailSnapshot = {
+			...snapshot(),
+			messages: [
+				fauxAssistantMessage(
+					[
+						{ type: "text", text: "Checking free space." },
+						fauxToolCall("bash", { command: "df -h", timeout: 10 }, { id: "disk" }),
+					],
+					{ timestamp: 2, stopReason: "toolUse" },
+				),
+				{
+					role: "toolResult",
+					toolName: "bash",
+					toolCallId: "disk",
+					content: [{ type: "text", text: "Filesystem\n/dev/local 125G" }],
+					isError: false,
+					durationMs: 24,
+					timestamp: 3,
+				},
+				fauxAssistantMessage(fauxToolCall("read", { path: "disk.txt" }, { id: "next" }), {
+					timestamp: 4,
+					stopReason: "toolUse",
+				}),
+				{
+					role: "toolResult",
+					toolName: "read",
+					toolCallId: "next",
+					content: [{ type: "text", text: "Next output" }],
+					isError: false,
+					durationMs: 2,
+					timestamp: 5,
+				},
+			],
+		};
+		const view = new SubagentDetailView(
+			{ terminal: { rows: 30 }, requestRender: vi.fn() } as unknown as TUI,
+			() => current,
+			vi.fn(),
+		);
+		let lines = view.render(100).map(stripAnsi);
+		let row = lines.findIndex((line) => line.includes("$ df -h"));
+		expect(lines[row - 1].replaceAll("│", "").trim()).toBe("");
+		expect(lines[row + 1]).toContain("disk.txt");
+		expect(view.handleMouse(mouse(3, row))?.handled).toBe(true);
+		lines = view.render(100).map(stripAnsi);
+		row = lines.findIndex((line) => line.includes("$ df -h"));
+		expect(lines[row]).toContain("▾");
+		expect(lines[row + 1]).toContain("Filesystem");
+		expect(lines[row + 2]).toContain("/dev/local");
+		expect(lines[row + 3]).toContain("disk.txt");
+		expect(lines.join("\n").match(/24ms/g)).toHaveLength(1);
+		expect(view.handleMouse(mouse(3, row + 1))?.handled).not.toBe(true);
+		expect(stripAnsi(view.render(100).join("\n"))).toContain("Filesystem");
+		expect(view.handleMouse(mouse(3, row))?.handled).toBe(true);
+		expect(stripAnsi(view.render(100).join("\n"))).not.toContain("Filesystem");
+		view.dispose();
+	});
 	it("renders user content-block arrays from real saved child sessions", () => {
 		const current: SubagentDetailSnapshot = {
 			...snapshot(),

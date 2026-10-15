@@ -177,6 +177,7 @@ import {
 import { ThemedText } from "./components/themed-text.ts";
 import { ThinkingSelectorComponent } from "./components/thinking-selector.ts";
 import { ToolExecutionComponent } from "./components/tool-execution.ts";
+import { ToolTranscriptContainer } from "./components/tool-transcript.ts";
 import { TreeSelectorComponent } from "./components/tree-selector.ts";
 import { TrustSelectorComponent } from "./components/trust-selector.ts";
 import { UserMessageComponent } from "./components/user-message.ts";
@@ -638,8 +639,7 @@ export class InteractiveMode {
 		this.ui.setClearOnShrink(this.settingsManager.getClearOnShrink());
 		this.headerContainer = new Container();
 		this.loadedResourcesContainer = new Container();
-		this.chatContainer = new Container();
-		this.chatContainer.render = (width) => this.renderChatWithoutToolGaps(width);
+		this.chatContainer = new ToolTranscriptContainer();
 		this.documentContainer = new Container();
 		this.documentContainer.addChild(this.headerContainer);
 		this.documentContainer.addChild(this.loadedResourcesContainer);
@@ -3615,7 +3615,6 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
-								component.setLeadingGap(!this.lastVisibleIsTool());
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
 							} else {
@@ -3695,7 +3694,6 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
-					component.setLeadingGap(!this.lastVisibleIsTool());
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
@@ -4122,7 +4120,6 @@ export class InteractiveMode {
 			if (message.role === "assistant") {
 				this.addMessageToChat(message);
 				// Render tool call components
-				let firstTool = true;
 				for (const content of message.content) {
 					if (content.type === "toolCall") {
 						const component = new ToolExecutionComponent(
@@ -4139,8 +4136,6 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
-						component.setLeadingGap(firstTool);
-						firstTool = false;
 						this.chatContainer.addChild(component);
 
 						if (message.stopReason === "aborted" || message.stopReason === "error") {
@@ -4653,43 +4648,6 @@ export class InteractiveMode {
 		} catch (error) {
 			this.showError(error instanceof Error ? error.message : String(error));
 		}
-	}
-
-	private renderChatWithoutToolGaps(width: number): string[] {
-		const lines: string[] = [];
-		const children = this.chatContainer.children;
-		const isGap = (child: Component) => {
-			const rendered = child.render(width);
-			return rendered.length > 0 && rendered.every((line) => line.trim() === "");
-		};
-		const nextVisible = (start: number) => {
-			for (let index = start; index < children.length; index++) if (!isGap(children[index])) return children[index];
-			return undefined;
-		};
-		let previous: Component | undefined;
-		for (let index = 0; index < children.length; index++) {
-			const child = children[index];
-			if (
-				isGap(child) &&
-				previous instanceof ToolExecutionComponent &&
-				nextVisible(index + 1) instanceof ToolExecutionComponent
-			) {
-				continue;
-			}
-			lines.push(...child.render(width));
-			if (!isGap(child)) previous = child;
-		}
-		return lines;
-	}
-
-	private lastVisibleIsTool(): boolean {
-		for (let index = this.chatContainer.children.length - 1; index >= 0; index--) {
-			const child = this.chatContainer.children[index];
-			if (child instanceof Spacer) continue;
-			if (child instanceof Text && child.render(80).every((line) => line.trim() === "")) continue;
-			return child instanceof ToolExecutionComponent;
-		}
-		return false;
 	}
 
 	private renderToolExpansionHint(width: number): string[] {

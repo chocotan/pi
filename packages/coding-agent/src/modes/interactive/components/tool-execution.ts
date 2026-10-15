@@ -37,13 +37,35 @@ export interface ToolExecutionOptions {
 	outputPad?: number;
 }
 
+/** Keep rendered body rows and mouse coordinates in sync when omitting a duplicate call title. */
+class ToolBody extends Container {
+	private readonly omitTitle: boolean;
+	private offset = 0;
+	constructor(child: Component, omitTitle = false) {
+		super();
+		this.addChild(child);
+		this.omitTitle = omitTitle;
+	}
+	override render(width: number): string[] {
+		const lines = super.render(width);
+		let offset = 0;
+		while (offset < lines.length && !stripAnsi(lines[offset]).trim()) offset++;
+		if (this.omitTitle && offset < lines.length) offset++;
+		while (offset < lines.length && !stripAnsi(lines[offset]).trim()) offset++;
+		this.offset = offset;
+		return lines.slice(offset);
+	}
+	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
+		return super.handleMouse({ ...event, y: event.y + this.offset, height: event.height + this.offset });
+	}
+}
+
 export class ToolExecutionComponent extends Container {
 	private toolCallId: string;
 	private contentBox: Box;
 	private contentText: Text;
 	private contentTextRegion: MouseRegion;
 	private selfRenderContainer: Container;
-	private selfRenderHeight = 0;
 	private callRendererComponent?: Component;
 	private resultRendererComponent?: Component;
 	private rendererState: any = {};
@@ -54,7 +76,7 @@ export class ToolExecutionComponent extends Container {
 	private toolName: string;
 	private args: any;
 	private expanded = false;
-	private leadingGap = true;
+	private readonly leadingSpacer = new Spacer(1);
 	private showImages: boolean;
 	private imageWidthCells: number;
 	private outputPad: number;
@@ -92,13 +114,14 @@ export class ToolExecutionComponent extends Container {
 		this.ui = ui;
 		this.cwd = cwd;
 
-		this.addChild(new Spacer(1));
+		this.addChild(this.leadingSpacer);
+		this.addChild({ render: (width) => [this.renderHeader(width)], invalidate() {} });
 
 		// Always create all shell variants. contentBox is used for default renderer-based composition.
 		// selfRenderContainer is used when the tool renders its own framing.
 		// contentText is reserved for generic fallback rendering when no tool definition exists.
-		this.contentBox = new Box(1, 1, (text: string) => theme.bg("toolPendingBg", text));
-		this.contentText = new Text("", 1, 1, (text: string) => theme.bg("toolPendingBg", text));
+		this.contentBox = new Box(1, 0, (text: string) => theme.bg("toolPendingBg", text));
+		this.contentText = new Text("", 1, 0, (text: string) => theme.bg("toolPendingBg", text));
 		this.contentTextRegion = this.createResultRegion(this.contentText);
 		this.selfRenderContainer = new Container();
 
@@ -177,6 +200,10 @@ export class ToolExecutionComponent extends Container {
 		});
 	}
 
+	private createBodyRegion(component: Component, omitTitle = false): MouseRegion {
+		return this.createResultRegion(this.getRenderShell() === "self" ? component : new ToolBody(component, omitTitle));
+	}
+
 	updateArgs(args: any): void {
 		this.args = args;
 		this.updateDisplay();
@@ -215,7 +242,7 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	setLeadingGap(enabled: boolean): void {
-		this.leadingGap = enabled;
+		this.leadingSpacer.setLines(enabled ? 1 : 0);
 	}
 
 	setOutputPad(outputPad: number): void {
@@ -271,58 +298,19 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	override render(width: number): string[] {
-		if (this.hideComponent) {
+		if (this.hideComponent) return [];
+		if (
+			this.getRenderShell() === "self" &&
+			this.selfRenderContainer.render(width).length === 0 &&
+			this.imageComponents.length === 0
+		)
 			return [];
-		}
-		if (!this.expanded) {
-			if (
-				this.getRenderShell() === "self" &&
-				this.selfRenderContainer.render(width).length === 0 &&
-				this.imageComponents.length === 0
-			)
-				return [];
-			return this.leadingGap ? ["", this.renderHeader(width)] : [this.renderHeader(width)];
-		}
-
-		if (this.hasRendererDefinition() && this.getRenderShell() === "self") {
-			const contentLines = this.selfRenderContainer.render(width);
-			this.selfRenderHeight = contentLines.length;
-			if (contentLines.length === 0 && this.imageComponents.length === 0) {
-				return [];
-			}
-
-			const lines: string[] = this.leadingGap ? ["", this.renderHeader(width)] : [this.renderHeader(width)];
-			if (contentLines.length > 0) {
-				lines.push(...contentLines);
-			}
-			for (let i = 0; i < this.imageComponents.length; i++) {
-				const spacer = this.imageSpacers[i];
-				if (spacer) {
-					lines.push(...spacer.render(width));
-				}
-				const imageComponent = this.imageComponents[i];
-				if (imageComponent) {
-					lines.push(...imageComponent.render(width));
-				}
-			}
-			return lines;
-		}
-
-		const body = super.render(width).slice(this.leadingGap ? 0 : 1);
-		const headerCall = stripAnsi(this.renderHeader(width))
-			.replace(/^.*?[✓✗◌⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*/, "")
-			.split(" · ")[0]
-			.trim();
-		const duplicate = body.findIndex((line) => {
-			const plain = stripAnsi(line).trim();
-			return plain.length > 0 && headerCall.startsWith(plain);
-		});
-		if (duplicate >= 0 && duplicate < 3) body.splice(duplicate, 1);
-		return [this.renderHeader(width), ...body];
+		if (!this.expanded) return [...this.leadingSpacer.render(width), this.renderHeader(width)];
+		return super.render(width);
 	}
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
-		const headerRow = this.leadingGap ? 1 : 0;
+		const headerRow = this.leadingSpacer.render(event.width).length;
 		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === headerRow) {
 			if (event.type === "click") this.setExpanded(!this.expanded);
 			return {
@@ -337,14 +325,8 @@ export class ToolExecutionComponent extends Container {
 				},
 			};
 		}
-		if (!this.expanded || event.y < 1) return undefined;
-		if (!this.hasRendererDefinition() || this.getRenderShell() !== "self") return super.handleMouse(event);
-		if (event.y >= this.selfRenderHeight + 1) return undefined;
-		return this.selfRenderContainer.handleMouse({
-			...event,
-			y: event.y - 1,
-			height: this.selfRenderHeight,
-		});
+		if (!this.expanded || event.y <= headerRow) return undefined;
+		return super.handleMouse(event);
 	}
 
 	private updateDisplay(): void {
@@ -366,17 +348,17 @@ export class ToolExecutionComponent extends Container {
 
 			const callRenderer = this.getCallRenderer();
 			if (!callRenderer) {
-				renderContainer.addChild(this.createResultRegion(this.createCallFallback()));
+				renderContainer.addChild(this.createBodyRegion(this.createCallFallback(), true));
 				hasContent = true;
 			} else {
 				try {
 					const component = callRenderer(this.args, theme, this.getRenderContext(this.callRendererComponent));
 					this.callRendererComponent = component;
-					renderContainer.addChild(this.createResultRegion(component));
+					renderContainer.addChild(this.createBodyRegion(component, true));
 					hasContent = true;
 				} catch {
 					this.callRendererComponent = undefined;
-					renderContainer.addChild(this.createResultRegion(this.createCallFallback()));
+					renderContainer.addChild(this.createBodyRegion(this.createCallFallback(), true));
 					hasContent = true;
 				}
 			}
@@ -386,7 +368,7 @@ export class ToolExecutionComponent extends Container {
 				if (!resultRenderer) {
 					const component = this.createResultFallback();
 					if (component) {
-						renderContainer.addChild(this.createResultRegion(component));
+						renderContainer.addChild(this.createBodyRegion(component));
 						hasContent = true;
 					}
 				} else {
@@ -398,13 +380,13 @@ export class ToolExecutionComponent extends Container {
 							this.getRenderContext(this.resultRendererComponent),
 						);
 						this.resultRendererComponent = component;
-						renderContainer.addChild(this.createResultRegion(component));
+						renderContainer.addChild(this.createBodyRegion(component));
 						hasContent = true;
 					} catch {
 						this.resultRendererComponent = undefined;
 						const component = this.createResultFallback();
 						if (component) {
-							renderContainer.addChild(this.createResultRegion(component));
+							renderContainer.addChild(this.createBodyRegion(component));
 							hasContent = true;
 						}
 					}
@@ -474,11 +456,9 @@ export class ToolExecutionComponent extends Container {
 	}
 
 	private formatToolExecution(): string {
-		let text = theme.fg("toolTitle", theme.bold(this.toolName));
+		let text = "";
 		const content = JSON.stringify(this.args, null, 2);
-		if (content) {
-			text += `\n\n${content}`;
-		}
+		if (content) text = content;
 		const output = this.getTextOutput();
 		if (output) {
 			text += `\n${output}`;
