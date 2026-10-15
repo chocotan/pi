@@ -38,6 +38,7 @@ export interface ToolExecutionOptions {
 }
 
 export class ToolExecutionComponent extends Container {
+	readonly toolCallId: string;
 	private contentBox: Box;
 	private contentText: Text;
 	private contentTextRegion: MouseRegion;
@@ -51,9 +52,12 @@ export class ToolExecutionComponent extends Container {
 	private imageSources: Array<{ data: string; mimeType: string; widthCells: number }> = [];
 	private imageSpacers: Spacer[] = [];
 	private toolName: string;
-	private toolCallId: string;
 	private args: any;
 	private expanded = false;
+	private groupRole: "single" | "first" | "member" = "single";
+	private groupSize = 1;
+	private groupExpanded = false;
+	onGroupToggle?: (id: string) => void;
 	private showImages: boolean;
 	private imageWidthCells: number;
 	private outputPad: number;
@@ -213,6 +217,13 @@ export class ToolExecutionComponent extends Container {
 		this.updateDisplay();
 	}
 
+	setGroup(role: "single" | "first" | "member", size: number, expanded: boolean): void {
+		this.groupRole = role;
+		this.groupSize = size;
+		this.groupExpanded = expanded;
+		this.invalidate();
+	}
+
 	setOutputPad(outputPad: number): void {
 		this.outputPad = outputPad;
 		this.updateDisplay();
@@ -258,14 +269,17 @@ export class ToolExecutionComponent extends Container {
 		const plainCall = stripAnsi(renderedCall);
 		const leading = visibleWidth(plainCall) - visibleWidth(plainCall.trimStart());
 		const call = truncateToWidth(sliceByColumn(renderedCall, leading, visibleWidth(plainCall.trim())), budget, "…");
-		const text = truncateToWidth(`${this.expanded ? "▾" : "▸"} ${status} ${call}${error}${suffix}`, available, "…");
+		const group =
+			this.groupRole === "first" && !this.groupExpanded ? theme.fg("muted", ` · ${this.groupSize} calls`) : "";
+		const marker = this.groupRole === "first" ? (this.groupExpanded ? "▾" : "▸") : this.expanded ? "▾" : "▸";
+		const text = truncateToWidth(`${marker} ${status} ${call}${group}${error}${suffix}`, available, "…");
 		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
 		const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
 		return theme.bg(color, line);
 	}
 
 	override render(width: number): string[] {
-		if (this.hideComponent) {
+		if (this.hideComponent || (this.groupRole === "member" && !this.groupExpanded)) {
 			return [];
 		}
 		if (!this.expanded) {
@@ -307,7 +321,10 @@ export class ToolExecutionComponent extends Container {
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
 		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === 1) {
-			if (event.type === "click") this.setExpanded(!this.expanded);
+			if (event.type === "click") {
+				if (this.groupRole === "first") this.onGroupToggle?.(this.toolCallId);
+				else this.setExpanded(!this.expanded);
+			}
 			return {
 				handled: true,
 				render: event.type === "click",

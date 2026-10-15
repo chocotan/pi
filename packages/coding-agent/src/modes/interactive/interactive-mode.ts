@@ -512,6 +512,7 @@ export class InteractiveMode {
 
 	// Tool output expansion state
 	private toolOutputExpanded = false;
+	private readonly expandedToolGroups = new Set<string>();
 
 	// Thinking block visibility state
 	private hideThinkingBlock = false;
@@ -3614,8 +3615,10 @@ export class InteractiveMode {
 									this.sessionManager.getCwd(),
 								);
 								component.setExpanded(this.toolOutputExpanded);
+								component.onGroupToggle = (id) => this.toggleToolGroup(id);
 								this.chatContainer.addChild(component);
 								this.pendingTools.set(content.id, component);
+								this.syncToolGroups();
 							} else {
 								const component = this.pendingTools.get(content.id);
 								if (component) {
@@ -3693,9 +3696,11 @@ export class InteractiveMode {
 						this.sessionManager.getCwd(),
 					);
 					component.setExpanded(this.toolOutputExpanded);
+					component.onGroupToggle = (id) => this.toggleToolGroup(id);
 					this.chatContainer.addChild(component);
 					this.pendingTools.set(event.toolCallId, component);
 				}
+				this.syncToolGroups();
 				component.markExecutionStarted();
 				this.ui.requestRender();
 				break;
@@ -4133,6 +4138,7 @@ export class InteractiveMode {
 							this.sessionManager.getCwd(),
 						);
 						component.setExpanded(this.toolOutputExpanded);
+						component.onGroupToggle = (id) => this.toggleToolGroup(id);
 						this.chatContainer.addChild(component);
 
 						if (message.stopReason === "aborted" || message.stopReason === "error") {
@@ -4171,6 +4177,7 @@ export class InteractiveMode {
 
 		for (const [toolCallId, component] of renderedPendingTools) {
 			this.pendingTools.set(toolCallId, component);
+			this.syncToolGroups();
 		}
 		this.ui.requestRender();
 	}
@@ -4645,6 +4652,35 @@ export class InteractiveMode {
 		} catch (error) {
 			this.showError(error instanceof Error ? error.message : String(error));
 		}
+	}
+
+	private syncToolGroups(): void {
+		const tools = this.chatContainer.children.filter(
+			(child): child is ToolExecutionComponent => child instanceof ToolExecutionComponent,
+		);
+		let index = 0;
+		while (index < tools.length) {
+			let end = index + 1;
+			while (
+				end < tools.length &&
+				this.chatContainer.children.indexOf(tools[end]) === this.chatContainer.children.indexOf(tools[end - 1]) + 1
+			)
+				end++;
+			const group = tools.slice(index, end);
+			const key = group[0].toolCallId;
+			const expanded = group.length < 2 || this.expandedToolGroups.has(key);
+			for (const [offset, tool] of group.entries()) {
+				tool.setGroup(group.length < 2 ? "single" : offset ? "member" : "first", group.length, expanded);
+			}
+			index = end;
+		}
+	}
+
+	private toggleToolGroup(id: string): void {
+		if (this.expandedToolGroups.has(id)) this.expandedToolGroups.delete(id);
+		else this.expandedToolGroups.add(id);
+		this.syncToolGroups();
+		this.ui.requestRender();
 	}
 
 	private renderToolExpansionHint(width: number): string[] {

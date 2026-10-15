@@ -32,14 +32,18 @@ export class TodoPanel implements Component {
 		this.width = width;
 		const state = this.getState();
 		const done = state.tasks.filter((task) => task.status === "completed").length;
+		const open = state.tasks.filter((task) => task.status !== "completed");
+		const tasks = state.tasks.length > 5 ? (open.length ? open : state.tasks.slice(0, 1)) : state.tasks;
+		const hidden = state.tasks.length - tasks.length;
 		const inner = Math.max(1, width - 4);
-		const title = truncateToWidth(`Todo · ${done}/${state.tasks.length}`, Math.max(0, width - 8), "…");
+		const hiddenLabel = hidden ? ` · ${hidden} done hidden` : "";
+		const title = truncateToWidth(`Todo · ${done}/${state.tasks.length}${hiddenLabel}`, Math.max(0, width - 8), "…");
 		const header = `╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}[x] ╮`;
 		const capacity = Math.max(0, Math.floor(this.ui.terminal.rows * 0.35) - 2);
 		const body: string[] = [];
 		const positions: typeof this.positions = [];
-		if (!state.tasks.length) body.push(theme.fg("muted", "No tasks"));
-		for (const task of state.tasks) {
+		if (!tasks.length) body.push(theme.fg("muted", hidden ? `${hidden} completed hidden` : "No tasks"));
+		for (const task of tasks) {
 			const marker = task.status === "completed" ? "✓" : task.status === "in_progress" ? "›" : "·";
 			const color = task.status === "completed" ? "success" : task.status === "in_progress" ? "accent" : "muted";
 			const start = body.length;

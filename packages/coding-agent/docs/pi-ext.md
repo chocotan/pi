@@ -50,7 +50,7 @@ Tasks start as `pending`; use `in_progress` during work and `completed` only onc
 
 State is stored as session custom entries and reconstructed from the active branch. Tree navigation restores the tasks belonging to that point; compaction does not erase the task state. In-memory sessions remain in memory.
 
-`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel appears at the top right when tasks exist without taking keyboard focus. An empty list stays hidden; deleting the last task closes the panel. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
+`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel appears at the top right when tasks exist without taking keyboard focus. An empty list stays hidden; deleting the last task closes the panel. Lists longer than five hide completed or failed items without deleting them. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
 
 ## Subagents
 
@@ -73,7 +73,7 @@ Runs are session-owned. Quit, reload, session replacement, and tree navigation s
 
 Provider-reported child usage is recorded through `pi.appendUsage()` once. Reading the result again does not add usage.
 
-Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
+Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Consecutive tool calls collapse behind the first row; click it to expand the group. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
 
 ### Agent definitions
 

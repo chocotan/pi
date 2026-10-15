@@ -61,6 +61,27 @@ describe("workflow floating and inline widgets", () => {
 		state = { ...state, tasks: [{ ...state.tasks[0], status: "completed" }] };
 		text = stripAnsi(panel.render(80).join("\n"));
 		expect(text).toContain("Todo · 1/1");
+		state = {
+			nextId: 8,
+			tasks: [
+				...Array.from({ length: 4 }, (_, index) => ({
+					...state.tasks[0],
+					id: String(index + 1),
+					subject: `Done ${index}`,
+					status: "completed" as const,
+				})),
+				...Array.from({ length: 3 }, (_, index) => ({
+					...state.tasks[0],
+					id: String(index + 5),
+					subject: `Open ${index}`,
+					status: "pending" as const,
+				})),
+			],
+		};
+		text = stripAnsi(panel.render(80).join("\n"));
+		expect(text).toContain("4 done hidden");
+		expect(text).not.toContain("Done 0");
+		expect(text).toContain("Open 0");
 		panel.handleMouse(mouse(76, 0));
 		expect(close).toHaveBeenCalledOnce();
 	});
@@ -96,6 +117,30 @@ describe("workflow floating and inline widgets", () => {
 		expect(open).toHaveBeenCalledWith(record);
 		panel.handleMouse(mouse(76, 0));
 		expect(close).toHaveBeenCalledOnce();
+		const mixed = new SubagentPanel(
+			ui,
+			[
+				...Array.from({ length: 4 }, (_, index) => ({
+					...record,
+					id: `done-${index}`,
+					description: `Done ${index}`,
+				})),
+				...Array.from({ length: 3 }, (_, index) => ({
+					...record,
+					id: `run-${index}`,
+					description: `Running ${index}`,
+					status: "running" as const,
+					finishedAt: undefined,
+				})),
+			],
+			open,
+			more,
+			close,
+		);
+		const mixedText = stripAnsi(mixed.render(80).join("\n"));
+		expect(mixedText).toContain("Subagents · 3/7");
+		expect(mixedText).not.toContain("Done 0");
+		expect(mixedText).toContain("Running 0");
 		const crowded = new SubagentPanel(
 			ui,
 			Array.from({ length: 10 }, (_, index) => ({ ...record, id: String(index) })),
@@ -109,7 +154,7 @@ describe("workflow floating and inline widgets", () => {
 			expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true);
 		}
 		const lines = crowded.render(80).map(stripAnsi);
-		const moreRow = lines.findIndex((line) => line.includes("+"));
+		const moreRow = lines.findIndex((line) => line.includes("view all"));
 		expect(moreRow).toBeGreaterThan(0);
 		crowded.handleMouse(mouse(3, moreRow));
 		expect(more).toHaveBeenCalledOnce();
