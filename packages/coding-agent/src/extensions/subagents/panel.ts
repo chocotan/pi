@@ -6,6 +6,7 @@ import {
 	truncateToWidth,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import { highlightHover } from "../../modes/interactive/components/hover-style.ts";
 import { theme } from "../../modes/interactive/theme/theme.ts";
 import type { SubagentRecord } from "./index.ts";
 
@@ -18,6 +19,7 @@ export class SubagentPanel implements Component {
 	private readonly close: () => void;
 	private rows: Array<SubagentRecord | undefined> = [];
 	private width = 0;
+	private hoveredRow: number | undefined;
 	constructor(
 		ui: TUI,
 		records: readonly SubagentRecord[],
@@ -48,8 +50,9 @@ export class SubagentPanel implements Component {
 		const current = records.find((record) => ["running", "queued"].includes(record.status)) ?? records[0];
 		const heading = current?.description || current?.agent || "Subagents";
 		const title = truncateToWidth(`${heading} · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
+		const close = this.hoveredRow === 0 ? highlightHover("[x]") : "[x]";
 		const lines = [
-			`╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}[x] ╮`,
+			`╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}${close} ╮`,
 		];
 		const availableRows = Math.max(1, Math.floor(this.ui.terminal.rows * 0.3) - 2);
 		const count = records.length > availableRows ? Math.max(1, availableRows - 1) : records.length;
@@ -95,12 +98,21 @@ export class SubagentPanel implements Component {
 			this.rows.push(undefined);
 		}
 		lines.push(`╰${"─".repeat(Math.max(0, width - 2))}╯`);
-		return lines.map((line) => truncateToWidth(line, width, ""));
+		return lines.map((line, row) =>
+			truncateToWidth(row > 0 && row === this.hoveredRow ? highlightHover(line) : line, width, ""),
+		);
 	}
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event.button !== "left") return undefined;
 		const closing = event.y === 0 && event.x >= Math.max(0, this.width - 6);
-		if (!closing && (event.y < 1 || event.y > this.rows.length)) return undefined;
+		const item = event.y >= 1 && event.y <= this.rows.length;
+		if (event.type === "move" || event.type === "leave") {
+			const hovered = event.type === "move" && event.button === "none" && (closing || item) ? event.y : undefined;
+			const changed = hovered !== this.hoveredRow;
+			this.hoveredRow = hovered;
+			return hovered !== undefined || changed ? { handled: true, render: changed } : undefined;
+		}
+		if (event.button !== "left") return undefined;
+		if (!closing && !item) return undefined;
 		if (event.type === "press") return { handled: true, render: false };
 		if (event.type !== "click") return undefined;
 		if (closing) this.close();

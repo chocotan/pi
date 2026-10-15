@@ -64,7 +64,6 @@ const ENTER_ALT_SCREEN = "\x1b[?1049h";
 const EXIT_ALT_SCREEN = "\x1b[?1049l";
 const DISABLE_AUTOWRAP = "\x1b[?7l";
 const ENABLE_AUTOWRAP = "\x1b[?7h";
-const ENABLE_BUTTON_MOTION_MOUSE = "\x1b[?1000h\x1b[?1002h\x1b[?1004h\x1b[?1006h";
 const ENABLE_ALL_MOTION_MOUSE = "\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1004h\x1b[?1006h";
 const DISABLE_MOUSE = "\x1b[?1006l\x1b[?1004l\x1b[?1003l\x1b[?1002l\x1b[?1000l";
 const FOCUS_IN = "\x1b[I";
@@ -231,6 +230,7 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 	private pressedUrl?: string;
 	private selectionDragged = false;
 	private mouseCapture?: TuiMouseDispatchTarget;
+	private mouseHover?: { target: TuiMouseDispatchTarget; event: TuiMouseEvent };
 	private mousePressTarget?: TuiMouseDispatchTarget;
 	private mousePressPoint?: { x: number; y: number };
 	private mousePressMoved = false;
@@ -326,6 +326,7 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 
 	setLayoutRoot(component: Component | undefined): void {
 		if (this.layoutRoot === component) return;
+		this.clearComponentHover();
 		this.layoutRoot = component;
 		this.currentLayout = undefined;
 		this.requestRender();
@@ -369,23 +370,13 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 		this.clearComponentMouseGesture();
 		this.lastComponentClick = undefined;
 		this.resetRenderState();
-		const term = process.env.TERM?.toLowerCase() ?? "";
-		// Multiplexers can lag when every pointer movement is forwarded. Button-motion
-		// tracking preserves clicks, wheel events, selections, and scrollbar dragging.
-		const mouseSequence =
-			process.env.TMUX !== undefined ||
-			process.env.ZELLIJ !== undefined ||
-			process.env.STY !== undefined ||
-			term.startsWith("tmux") ||
-			term.startsWith("screen")
-				? ENABLE_BUTTON_MOTION_MOUSE
-				: ENABLE_ALL_MOTION_MOUSE;
 		this.terminal.write(
-			`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? mouseSequence : ""}\x1b[2J\x1b[H\x1b[?25l`,
+			`${ENTER_ALT_SCREEN}${DISABLE_AUTOWRAP}${this.mouseEnabled ? ENABLE_ALL_MOTION_MOUSE : ""}\x1b[2J\x1b[H\x1b[?25l`,
 		);
 	}
 
 	protected override beforeTerminalStop(_options: TuiStopOptions): void {
+		this.clearComponentHover();
 		this.closeSearch();
 		this.stopSelectionAutoScroll();
 		this.selectionPressActive = false;
@@ -489,21 +480,25 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 	}
 
 	scrollBy(lines: number): void {
+		this.clearComponentHover();
 		this.getPrimaryScrollView().scrollBy(lines);
 		this.requestRender();
 	}
 
 	scrollToTop(): void {
+		this.clearComponentHover();
 		this.getPrimaryScrollView().scrollToStart();
 		this.requestRender();
 	}
 
 	scrollToBottom(): void {
+		this.clearComponentHover();
 		this.getPrimaryScrollView().scrollToEnd();
 		this.requestRender();
 	}
 
 	private scrollToPrompt(direction: -1 | 1): void {
+		this.clearComponentHover();
 		if (!this.currentLayout) return;
 		const scrollView = this.getPrimaryScrollView();
 		const lines = getScrollViewBox(this.currentLayout, scrollView)?.scrollContentLines;
@@ -670,6 +665,42 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 		return this.isOverlayFocused() && this.activeSearch?.overlay?.isFocused() !== true;
 	}
 
+	protected override beforeOverlayChange(): void {
+		this.clearComponentHover();
+		if (this.activeSearch?.component.setHoveredNavigationDirection(undefined)) this.requestRender();
+	}
+
+	private clearComponentHover(): void {
+		const hover = this.mouseHover;
+		if (!hover) return;
+		this.mouseHover = undefined;
+		const result = this.dispatchMouseToTarget({ ...hover.event, type: "leave" }, hover.target);
+		if (result?.render) this.requestRender();
+	}
+
+	/** Re-hit-test the actual child target after containers and overlays have rendered their current bounds. */
+	private refreshComponentHover(layout: LayoutFrame): boolean {
+		const hover = this.mouseHover;
+		if (!hover) return false;
+		const overlay = this.dispatchMouseToOverlay(hover.event);
+		const result = overlay.result ?? (overlay.hit ? undefined : this.dispatchMouseToLayout(hover.event, layout));
+		const current = result?.target;
+		const previous = hover.target;
+		if (
+			current &&
+			current.component === previous.component &&
+			current.originX === previous.originX &&
+			current.originY === previous.originY &&
+			current.width === previous.width &&
+			current.height === previous.height
+		)
+			return result?.render === true;
+		this.clearComponentHover();
+		// The hit-test may have highlighted a newly exposed control. Leave it unhighlighted until the pointer moves.
+		if (current) this.dispatchMouseToTarget({ ...hover.event, type: "leave" }, current);
+		return true;
+	}
+
 	private clearComponentMouseGesture(): void {
 		this.mouseCapture = undefined;
 		this.mousePressTarget = undefined;
@@ -679,6 +710,7 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 
 	private handleViewportInput(data: string): { consume?: boolean } | undefined {
 		if (data === FOCUS_OUT) {
+			this.clearComponentHover();
 			const hadActiveSelection = this.selectionPressActive;
 			const hadNonEmptyActiveSelection = hadActiveSelection && this.getSelectionBounds() !== undefined;
 			this.selectionPressActive = false;
@@ -704,6 +736,8 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 
 		const wheelEvent = this.parseWheelEvent(data);
 		if (wheelEvent) {
+			this.clearComponentHover();
+			if (this.activeSearch?.component.setHoveredNavigationDirection(undefined)) this.requestRender();
 			const lines = this.wheelScroll.next(wheelEvent.direction, performance.now());
 			// SGR mouse button codes use bit 3 (value 8) for the Alt modifier.
 			const wheelDelta =
@@ -724,6 +758,7 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 			return { consume: true };
 		}
 		if (this.isMouseSequence(data)) return { consume: true };
+		this.clearComponentHover();
 
 		const keybindings = getKeybindings();
 		const isRelease = isKeyRelease(data);
@@ -830,10 +865,13 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 		};
 	}
 
-	private dispatchMouseToLayout(event: TuiMouseEvent): TuiMouseDispatchResult | undefined {
-		if (!this.currentLayout) return undefined;
+	private dispatchMouseToLayout(
+		event: TuiMouseEvent,
+		layout = this.currentLayout,
+	): TuiMouseDispatchResult | undefined {
+		if (!layout) return undefined;
 		const visited = new Set<Component>();
-		const boxes = getLayoutBoxesAt(this.currentLayout, event.screenX, event.screenY);
+		const boxes = getLayoutBoxesAt(layout, event.screenX, event.screenY);
 		for (const box of boxes) {
 			if (visited.has(box.component)) continue;
 			if (getLayoutNode(box.component) && box.component.handleMouse === Container.prototype.handleMouse) continue;
@@ -908,6 +946,9 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 					: "drag"
 				: "press";
 		const event = this.createMouseEvent(type, raw.button, raw.x, raw.y);
+		if (type !== "move") this.clearComponentHover();
+		// A selection or captured gesture owns motion until release.
+		if (type === "move" && (this.selectionPressActive || this.mouseCapture || this.mousePressTarget)) return;
 
 		if (this.mouseCapture || this.mousePressTarget) {
 			const target = this.mouseCapture ?? this.mousePressTarget!;
@@ -945,6 +986,10 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 		}
 
 		const result = overlay.result ?? (overlay.hit ? undefined : this.dispatchMouseToLayout(event));
+		if (type === "move") {
+			if (this.mouseHover?.target.component !== result?.target.component) this.clearComponentHover();
+			this.mouseHover = result ? { target: result.target, event } : undefined;
+		}
 		if (result) {
 			const render = this.applyMouseDispatchResult(event, result);
 			if (type === "press") {
@@ -1681,16 +1726,24 @@ export class TuiAltScreen extends TuiBase implements ViewportTUI {
 		if (this.stopped || !this.altScreenActive) return;
 		const width = Math.max(1, this.terminal.columns);
 		const height = Math.max(1, this.terminal.rows);
+		if (width !== this.previousScreenWidth || height !== this.previousScreenHeight) this.clearComponentHover();
 		const root = this.layoutRoot ?? this.implicitScrollView;
 		let nextLayout = renderLayoutFrame(root, width, height, () => this.requestRender());
 		if (this.refreshSearch(nextLayout)) {
 			nextLayout = renderLayoutFrame(root, width, height, () => this.requestRender());
 		}
-		// Resolve fake cursors before highlighting and compositing, which only track SGR codes
-		let screen = this.resolveFakeCursors(nextLayout.lines.map((line) => line.replace(OSC133_ZONE_PREFIX, "")));
-		screen = this.applySearchHighlights(screen, nextLayout);
-		screen = this.compositeScrollToEndIndicator(screen, nextLayout, width);
-		screen = this.compositeOverlays(screen, width, height);
+		// Composite overlays first so hover validation sees their updated position and their child hit-test layouts.
+		const compose = (layout: LayoutFrame): string[] => {
+			let lines = this.resolveFakeCursors(layout.lines.map((line) => line.replace(OSC133_ZONE_PREFIX, "")));
+			lines = this.applySearchHighlights(lines, layout);
+			lines = this.compositeScrollToEndIndicator(lines, layout, width);
+			return this.compositeOverlays(lines, width, height);
+		};
+		let screen = compose(nextLayout);
+		if (this.refreshComponentHover(nextLayout)) {
+			nextLayout = renderLayoutFrame(root, width, height, () => this.requestRender());
+			screen = compose(nextLayout);
+		}
 		if (screen.length > height) screen = screen.slice(screen.length - height);
 		screen = this.applySelection(screen, nextLayout);
 		screen = this.compositeFlashes(screen, width, height);

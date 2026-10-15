@@ -26,6 +26,7 @@ import {
 import { stripAnsi } from "../../../utils/ansi.ts";
 import { ensurePngTranscoder } from "../../../utils/image-convert.ts";
 import { theme } from "../theme/theme.ts";
+import { highlightHover } from "./hover-style.ts";
 import { keyHint } from "./keybinding-hints.ts";
 
 const FALLBACK_PREVIEW_LINES = 10;
@@ -76,6 +77,7 @@ export class ToolExecutionComponent extends Container {
 	private toolName: string;
 	private args: any;
 	private expanded = false;
+	private headerHovered = false;
 	private readonly leadingSpacer = new Spacer(1);
 	private showImages: boolean;
 	private imageWidthCells: number;
@@ -294,7 +296,7 @@ export class ToolExecutionComponent extends Container {
 		const text = truncateToWidth(`${marker} ${status} ${call}${error}${suffix}`, available, "…");
 		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
 		const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
-		return theme.bg(color, line);
+		return this.headerHovered ? highlightHover(line) : theme.bg(color, line);
 	}
 
 	override render(width: number): string[] {
@@ -311,11 +313,19 @@ export class ToolExecutionComponent extends Container {
 
 	override handleMouse(event: TuiMouseEvent): ReturnType<Container["handleMouse"]> {
 		const headerRow = this.leadingSpacer.render(event.width).length;
-		if ((event.type === "press" || event.type === "click") && event.button === "left" && event.y === headerRow) {
+		const hoverEvent = event.type === "move" || event.type === "leave";
+		const hovered = event.type === "move" && event.button === "none" && event.y === headerRow;
+		const hoverChanged = hoverEvent && hovered !== this.headerHovered;
+		if (hoverEvent) this.headerHovered = hovered;
+		if (hoverChanged && !hovered) this.ui.requestRender();
+		if (
+			(hoverEvent && hovered) ||
+			((event.type === "press" || event.type === "click") && event.button === "left" && event.y === headerRow)
+		) {
 			if (event.type === "click") this.setExpanded(!this.expanded);
 			return {
 				handled: true,
-				render: event.type === "click",
+				render: hoverChanged || event.type === "click",
 				target: {
 					component: this,
 					originX: event.screenX - event.x,

@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-tui";
 import type { MarkdownTransformer } from "../../../core/extensions/types.ts";
 import { getMarkdownTheme, theme } from "../theme/theme.ts";
+import { highlightHover } from "./hover-style.ts";
 import { createMarkdownTransform } from "./markdown-transform.ts";
 import { appendMessageTime } from "./message-time.ts";
 
@@ -164,13 +165,16 @@ export class AssistantMessageComponent extends Container {
 					? ` · ${(Math.max(0, (timing.ended ?? Date.now()) - timing.started) / 1000).toFixed(1)}s`
 					: "";
 				const thinkingComponent = new Container();
-				thinkingComponent.addChild(
-					new TruncatedText(
-						theme.italic(theme.fg("thinkingText", `${hidden ? "▸" : "▾"} ${label}${elapsed}`)),
-						this.outputPad,
-						0,
-					),
+				let headerHovered = false;
+				const header = new TruncatedText(
+					theme.italic(theme.fg("thinkingText", `${hidden ? "▸" : "▾"} ${label}${elapsed}`)),
+					this.outputPad,
+					0,
 				);
+				thinkingComponent.addChild({
+					render: (width) => header.render(width).map((line) => (headerHovered ? highlightHover(line) : line)),
+					invalidate: () => header.invalidate(),
+				});
 				if (!hidden) {
 					thinkingComponent.addChild(
 						new Markdown(
@@ -195,6 +199,12 @@ export class AssistantMessageComponent extends Container {
 
 				this.contentContainer.addChild(
 					new MouseRegion(thinkingComponent, (event) => {
+						if (event.type === "move" || event.type === "leave") {
+							const hovered = event.type === "move" && event.button === "none" && event.y === 0;
+							const changed = hovered !== headerHovered;
+							headerHovered = hovered;
+							return hovered || changed ? { handled: true, render: changed } : undefined;
+						}
 						if (event.button !== "left") return undefined;
 						if (event.type === "press" && event.y === 0) return { handled: true, render: false };
 						if (event.type !== "click") return undefined;

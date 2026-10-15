@@ -18,7 +18,7 @@ import { extractSegments, normalizeTerminalOutput, sliceByColumn, sliceWithWidth
 /**
  * Component interface - all components must implement this
  */
-export type TuiMouseEventType = "press" | "release" | "move" | "drag" | "click" | "wheel";
+export type TuiMouseEventType = "press" | "release" | "move" | "leave" | "drag" | "click" | "wheel";
 export type TuiMouseButton = "left" | "middle" | "right" | "none";
 
 /** Normalized cell-based mouse event. Coordinates are zero-based. */
@@ -52,7 +52,7 @@ export interface TuiMouseEventResult {
 	focus?: boolean;
 	/**
 	 * Explicitly request or suppress a render. Move and release default to false;
-	 * press, click, drag, and wheel default to true.
+	 * press, click, drag, and wheel default to true. Leave clears transient hover feedback.
 	 */
 	render?: boolean;
 }
@@ -559,6 +559,9 @@ export abstract class TuiBase extends Container implements TUI {
 
 	protected beforeTerminalStop(_options: TuiStopOptions): void {}
 
+	/** Called before overlay visibility or stacking changes. */
+	protected beforeOverlayChange(): void {}
+
 	protected afterTerminalStop(_options: TuiStopOptions): void {}
 
 	get fullRedraws(): number {
@@ -727,6 +730,7 @@ export abstract class TuiBase extends Container implements TUI {
 	 * Returns a handle to control the overlay's visibility.
 	 */
 	showOverlay(component: Component, options?: OverlayOptions): OverlayHandle {
+		this.beforeOverlayChange();
 		const entry: OverlayStackEntry = {
 			component,
 			...(options === undefined ? {} : { options }),
@@ -747,6 +751,7 @@ export abstract class TuiBase extends Container implements TUI {
 			hide: () => {
 				const index = this.overlayStack.indexOf(entry);
 				if (index !== -1) {
+					this.beforeOverlayChange();
 					this.clearOverlayFocusRestoreFor(entry);
 					this.retargetOverlayPreFocus(entry);
 					this.overlayStack.splice(index, 1);
@@ -761,6 +766,7 @@ export abstract class TuiBase extends Container implements TUI {
 			},
 			setHidden: (hidden: boolean) => {
 				if (entry.hidden === hidden) return;
+				this.beforeOverlayChange();
 				entry.hidden = hidden;
 				// Update focus when hiding/showing
 				if (hidden) {
@@ -782,6 +788,7 @@ export abstract class TuiBase extends Container implements TUI {
 			isHidden: () => entry.hidden,
 			focus: () => {
 				if (!this.overlayStack.includes(entry) || !this.isOverlayVisible(entry)) return;
+				this.beforeOverlayChange();
 				entry.focusOrder = ++this.focusOrderCounter;
 				this.setFocus(component);
 				this.requestRender();
@@ -829,6 +836,7 @@ export abstract class TuiBase extends Container implements TUI {
 	hideOverlay(): void {
 		const overlay = this.overlayStack[this.overlayStack.length - 1];
 		if (!overlay) return;
+		this.beforeOverlayChange();
 		this.clearOverlayFocusRestoreFor(overlay);
 		this.retargetOverlayPreFocus(overlay);
 		this.overlayStack.pop();

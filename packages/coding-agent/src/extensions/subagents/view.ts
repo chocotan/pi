@@ -13,6 +13,7 @@ import {
 import { formatToolDuration } from "../../core/tools/render-utils.ts";
 import { createAllToolRenderers } from "../../core/tools/renderers/index.ts";
 import { AssistantMessageComponent } from "../../modes/interactive/components/assistant-message.ts";
+import { highlightHover } from "../../modes/interactive/components/hover-style.ts";
 import { keyHint } from "../../modes/interactive/components/keybinding-hints.ts";
 import { ToolExecutionComponent } from "../../modes/interactive/components/tool-execution.ts";
 import { ToolTranscriptContainer } from "../../modes/interactive/components/tool-transcript.ts";
@@ -53,6 +54,7 @@ export class SubagentDetailView implements Component {
 	private width = 0;
 	private expandedTools = false;
 	private expandedThought = false;
+	private closeHovered = false;
 	constructor(ui: TUI, getSnapshot: () => SubagentDetailSnapshot, done: () => void) {
 		this.ui = ui;
 		this.getSnapshot = getSnapshot;
@@ -84,7 +86,15 @@ export class SubagentDetailView implements Component {
 		this.ui.requestRender();
 	}
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
-		if (event.button === "left" && event.y === 1 && event.x >= Math.max(0, this.width - 6)) {
+		const closing = event.y === 1 && event.x >= Math.max(0, this.width - 6);
+		if (event.type === "move" || event.type === "leave") {
+			const hovered = event.type === "move" && event.button === "none" && closing;
+			const changed = hovered !== this.closeHovered;
+			this.closeHovered = hovered;
+			if (hovered || (event.type === "leave" && changed)) return { handled: true, render: changed };
+			if (changed) this.ui.requestRender();
+		}
+		if (event.button === "left" && closing) {
 			if (event.type === "press") return { handled: true, render: false };
 			if (event.type === "click") {
 				this.done();
@@ -126,7 +136,8 @@ export class SubagentDetailView implements Component {
 			Math.max(0, inner - 5),
 			"…",
 		);
-		const title = `${description}${" ".repeat(Math.max(0, inner - visibleWidth(description) - 3))}${theme.fg("muted", "[X]")}`;
+		const close = theme.fg("muted", "[X]");
+		const title = `${description}${" ".repeat(Math.max(0, inner - visibleWidth(description) - 3))}${this.closeHovered ? highlightHover(close) : close}`;
 		const elapsed = formatToolDuration(Math.max(0, (snapshot.finishedAt ?? Date.now()) - snapshot.startedAt));
 		const metadata = theme.fg(
 			snapshot.status === "error" ? "error" : snapshot.status === "completed" ? "success" : "muted",

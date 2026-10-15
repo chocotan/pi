@@ -7,6 +7,7 @@ import {
 	visibleWidth,
 	wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
+import { highlightHover } from "../../modes/interactive/components/hover-style.ts";
 import { theme } from "../../modes/interactive/theme/theme.ts";
 import type { TaskRecord, TaskState } from "./index.ts";
 
@@ -20,6 +21,7 @@ export class TodoPanel implements Component {
 	private positions: Array<{ from: number; to: number; task: TaskRecord }> = [];
 	private width = 0;
 	private bodyHeight = 0;
+	private hovered: string | undefined;
 
 	constructor(ui: TUI, getState: () => TaskState, close: () => void, select: (task: TaskRecord) => void) {
 		this.ui = ui;
@@ -38,7 +40,8 @@ export class TodoPanel implements Component {
 		const inner = Math.max(1, width - 4);
 		const hiddenLabel = hidden ? ` · ${hidden} done hidden` : "";
 		const title = truncateToWidth(`Todo · ${done}/${state.tasks.length}${hiddenLabel}`, Math.max(0, width - 8), "…");
-		const header = `╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}[x] ╮`;
+		const close = this.hovered === "close" ? highlightHover("[x]") : "[x]";
+		const header = `╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}${close} ╮`;
 		const capacity = Math.max(0, Math.floor(this.ui.terminal.rows * 0.35) - 2);
 		const body: string[] = [];
 		const positions: typeof this.positions = [];
@@ -59,7 +62,11 @@ export class TodoPanel implements Component {
 		const visible = body.slice(this.offset, this.offset + capacity);
 		this.bodyHeight = visible.length;
 		const lines = [header];
-		for (const line of visible) lines.push(`│ ${line}${" ".repeat(Math.max(0, inner - visibleWidth(line)))} │`);
+		for (const [index, line] of visible.entries()) {
+			const row = `│ ${line}${" ".repeat(Math.max(0, inner - visibleWidth(line)))} │`;
+			const task = this.positions.find((position) => index + 1 >= position.from && index + 1 < position.to)?.task;
+			lines.push(task && task.id === this.hovered ? highlightHover(row) : row);
+		}
 		const footer =
 			body.length > capacity
 				? ` ${this.offset + 1}–${Math.min(body.length, this.offset + capacity)}/${body.length} · scroll `
@@ -70,16 +77,23 @@ export class TodoPanel implements Component {
 	}
 	handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
 		if (event.type === "wheel") {
+			this.hovered = undefined;
 			this.offset = Math.max(0, this.offset + (event.wheelDelta ?? 0));
 			this.ui.requestRender();
 			return { handled: true };
 		}
-		if (event.button !== "left") return undefined;
 		const closing = event.y === 0 && event.x >= Math.max(0, this.width - 6);
 		const task =
 			event.y > 0 && event.y <= this.bodyHeight
 				? this.positions.find((position) => event.y >= position.from && event.y < position.to)?.task
 				: undefined;
+		if (event.type === "move" || event.type === "leave") {
+			const hovered = event.type === "move" && event.button === "none" ? (closing ? "close" : task?.id) : undefined;
+			const changed = hovered !== this.hovered;
+			this.hovered = hovered;
+			return hovered !== undefined || changed ? { handled: true, render: changed } : undefined;
+		}
+		if (event.button !== "left") return undefined;
 		if (!closing && !task) return undefined;
 		if (event.type === "press") return { handled: true, render: false };
 		if (event.type !== "click") return undefined;
