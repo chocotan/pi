@@ -1,17 +1,19 @@
 # Pie
 
-Pie is a source fork of [Pi](https://github.com/earendil-works/pi), originally created by **Mario Zechner**. It keeps Pi's extensible agent runtime and adds built-in task tracking, isolated subagents, structured user questions, and a single-pane terminal interface with floating panels.
+Pie is a source fork of [Pi](https://github.com/earendil-works/pi), originally created by **Mario Zechner**. It keeps Pi's extensible agent runtime and adds built-in task tracking, isolated subagents, background shell jobs, structured user questions, a usage dashboard, and a single-pane terminal interface with floating panels.
 
 Its product version starts at **0.1.0**, independent of upstream SDK package versions. This fork lives at [chocotan/pi](https://github.com/chocotan/pi). Its command is `pie`, its global configuration directory is `~/.pie`, and project configuration lives in `.pie`. The original MIT license and attribution are preserved in [LICENSE](LICENSE).
 
 ## What Pie adds
 
-- **Replaceable built-in plugins:** Todo tools, isolated subagents, and `ask_user_question` load by default. Disable or replace each plugin independently through the extension loader.
-- **Single-pane terminal UI:** the conversation uses the terminal width, with a rounded composer and dismissible Todo and Subagents panels floating at the top right. Empty panels stay hidden, and the panels do not take keyboard focus.
+- **Replaceable built-in plugins:** Todo tools, isolated subagents, background shell jobs, `ask_user_question`, Ponytail and usage load by default. Disable or replace each plugin independently through the extension loader.
+- **Single-pane terminal UI:** the conversation uses the terminal width, with a rounded composer and dismissible Todo, Subagents and background-job panels floating at the top right. Empty panels stay hidden, and the panels do not take keyboard focus.
 - **Purpose-based tool titles:** coding tools and delegated runs show a short description of their purpose. Expand a row to inspect its full arguments and output.
 - **Visible progress:** tool and subagent rows share animated dots, completion states, and elapsed times. Clickable titles, panel entries, and close buttons highlight on hover in fullscreen mode.
 - **Subagent conversations:** open a delegated run from its floating panel to inspect instructions, Thinking, tool calls, and answers, then return to the parent conversation.
 - **Ponytail built in:** `/ponytail lite|full|ultra|off`, with review, audit, debt, gain and help skills, adapted from [Dietrich Gebert's Ponytail](https://github.com/DietrichGebert/ponytail) under MIT. Disable the plugin with `-builtin:ponytail`.
+- **Usage dashboard:** `/usage [day|week|month|total|cal]` shows recorded tokens and costs by provider/model, with period navigation and a calendar. Adapted from [pi-usage](https://github.com/chocotan/pi-usage) under MIT.
+- **Background shell jobs:** `bg_run`, `bg_status`, `bg_logs` and `bg_kill` run commands without blocking the conversation, retain bounded logs, and report completion. Jobs appear in the shared floating-panel stack. Adapted from [pi-background-tasks](https://github.com/ismailsaleekh/pi-background-tasks) under ISC.
 - **Single-line session footer:** folder, branch, usage totals, model and thinking level share one row; narrow windows shorten secondary information.
 - **Provider configuration:** use `/login` and `/model` for supported providers, or configure compatible endpoints and local models in `~/.pie/models.json`.
 
@@ -88,7 +90,7 @@ Global configuration and runtime data live directly under `~/.pie`, with no `age
 
 Project resources live in `<project>/.pie`. Override the global directory with `PIE_CODING_AGENT_DIR`, or session storage with `PIE_CODING_AGENT_SESSION_DIR`.
 
-Pie does not load or migrate previous Pi or pi-ext directories automatically. It provides no `pi` or `pi-ext` command alias and no fallback to the old directory override variables. Move any configuration you want to keep into the Pie locations yourself.
+When Pie has no model configuration, interactive startup can import Pi's `models.json` after explicit confirmation. Existing Pie files are never overwritten. Other previous Pi and pi-ext data is not loaded or migrated automatically. Pie provides no `pi` or `pi-ext` command alias and no fallback to old directory override variables.
 
 For a supported provider, use `/login` or its API-key environment variable. For an OpenAI-compatible endpoint, for example a local Ollama server, add an entry to `~/.pie/models.json`:
 
@@ -171,4 +173,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributo
 
 Pie builds on [Pi by Mario Zechner and its contributors](https://github.com/earendil-works/pi). Upstream project information is available at [pi.dev](https://pi.dev). The fork's changes are maintained in [chocotan/pi](https://github.com/chocotan/pi).
 
-Licensed under [MIT](LICENSE). The original license remains unchanged. The structured-question plugin also includes an [MIT notice for rpiv-ask-user-question](packages/coding-agent/docs/third-party/rpiv-ask-user-question-LICENSE).
+Licensed under [MIT](LICENSE). The original license remains unchanged. Bundled ports retain their own notices: [rpiv-ask-user-question](packages/coding-agent/docs/third-party/rpiv-ask-user-question-LICENSE), [pi-usage (MIT)](packages/coding-agent/docs/third-party/pi-usage/NOTICE.md), and [pi-background-tasks (ISC)](packages/coding-agent/docs/third-party/pi-background-tasks/NOTICE.md).

@@ -1,6 +1,8 @@
 # pi-background-tasks 移植评估
 
-结论：适合后续作为独立、可关闭的后台 shell 插件接入。此次已完成评估，未移植该插件。
+Implementation status: the shell scope below is now included in Pie as replaceable `builtin:background`. Its current UI uses `{ placement: "floating", order: 30 }` at the top right and data lives under `~/.pie/tasks`. See [Pie background jobs](../../packages/coding-agent/docs/pie.md#background-shell-jobs) for current behavior. This document records the original assessment.
+
+Original conclusion: the shell scope fits a separate, optional plugin. The current implementation status is recorded above.
 
 调查版本：[799182ff](https://github.com/ismailsaleekh/pi-background-tasks/tree/799182ff65d7040732aea23b2001ea860b688531)。许可证为 ISC；复制源码须保留版权行与完整许可。本文基于源码调查，不代表跨平台运行验证。
 

@@ -1,6 +1,6 @@
 # Pie built-in plugins
 
-Pie ships task tracking, subagents, structured user questions, Ponytail and a usage dashboard as built-in plugins. The terminal provides a rounded composer and dismissible Todo/Subagents panels stacked at the top right. It is a fork of [Pi](https://github.com/earendil-works/pi), originally created by Mario Zechner; the original MIT license is preserved.
+Pie ships task tracking, subagents, background shell jobs, structured user questions, Ponytail and a usage dashboard as built-in plugins. The terminal provides a rounded composer and dismissible Todo/Subagents panels stacked at the top right. It is a fork of [Pi](https://github.com/earendil-works/pi), originally created by Mario Zechner; the original MIT license is preserved.
 
 ## Configuration directory
 
@@ -39,6 +39,7 @@ Built-ins load by default in the CLI:
 - `builtin:ask-user-question`
 - `builtin:ponytail`
 - `builtin:usage`
+- `builtin:background`
 
 Disable individual plugins in `~/.pie/settings.json`:
 
@@ -134,6 +135,16 @@ Wide TUI questionnaires place options and previews side by side; narrow views st
 
 The schema, validation, normalization, response format, and RPC behavior are adapted from [rpiv-ask-user-question](https://github.com/juicesharp/rpiv-mono/tree/2d88b79c08ce19ffeecbe85d5ee1071046b708c0/packages/rpiv-ask-user-question). The view is adapted to this fork's native components and keybindings. The [MIT notice](third-party/rpiv-ask-user-question-LICENSE) is included. No rpiv-config or internationalization dependency is required.
 
+## Background shell jobs
+
+Tools: `bg_run`, `bg_status`, `bg_logs`, `bg_kill`. `/jobs` lists this session's jobs; `/jobs <id>` opens output. `bg_run` requires `command` and a short `name`, with an optional `description`, `shell` (`bash` or `powershell`), `timeoutSeconds`, `notifyOnCompletion` and `triggerOnCompletion`. Bash uses Pie's existing shell path and command prefix. Jobs require a persistent TUI or RPC session.
+
+Background jobs float below Todo and Subagents without taking keyboard focus. The panel prefers active jobs, shows up to five entries even when all have finished, and retains overflow behind `view all`. Click a row to inspect its command and bounded output. Closing the panel does not stop jobs; `/jobs` reopens it.
+
+Combined stdout/stderr is stored privately under `~/.pie/tasks/<session>/shell-<activation>/`. Each log is capped at 20MiB; exceeding the cap stops the job. `bg_logs` reads at most 50KiB and returns the full path. Completion notifications follow output closure and cleanup; they start a follow-up turn by default. Continue independent work or end the turn instead of polling. Disable notification or automatic follow-up per launch when appropriate.
+
+Shutdown, reload and session replacement stop owned process trees. Saved PID files never grant ownership after a reload. Normal extension permission hooks apply to `bg_run`; a disabled or replaced shell is rejected. The feature uses ordinary user permissions and is not an operating-system sandbox. See the [ISC attribution and integration boundary](third-party/pi-background-tasks/NOTICE.md), including the low-level SDK override limitation. Separate upstream Fusion/delegate/attestation systems are outside this shell port.
+
 ## Usage dashboard
 
 `/usage [day|week|month|total|cal]` opens the recorded token and cost dashboard. It groups usage by provider/model, supports period navigation and rescanning, and includes a calendar heatmap. Non-interactive modes write the table or calendar to stderr. It reads Pie's session directory, including directory overrides, and makes no provider or subscription-quota requests. Keyboard shortcuts are configurable under `app.usage.*` in `keybindings.json`.
@@ -143,7 +154,7 @@ The implementation is adapted from [pi-usage](https://github.com/chocotan/pi-usa
 ## Terminal behavior
 
 - The conversation uses the full terminal width. There is no application sidebar.
-- Todo and Subagents are non-capturing floating panels at the top right. Todo is above Subagents; both hide when empty. Closing Todo removes its space. Subagents use one row per run.
+- Todo, Subagents and background jobs are non-capturing floating panels at the top right, in that order. They hide when empty. Closing a panel removes its space.
 - Rounded input borders show current run status/time on the left.
 - Token and context statistics use the original Pi footer, including input/output, cache reads/writes, cache hit rate, cost, and right-aligned model/thinking. Directories outside Git repositories have no branch placeholder.
 - Active Thinking content expands while it streams and collapses when the next phase starts. Explicit manual and global visibility choices are respected. Thinking and tool headers remain visible in both states; click again to collapse.
@@ -165,4 +176,4 @@ Clear the widget with `ctx.ui.setWidget("my-plugin.jobs", undefined)`. Component
 
 ## Related migration assessment
 
-The shell-only portion of [pi-background-tasks](https://github.com/ismailsaleekh/pi-background-tasks) is complementary to these features. It was evaluated separately; it is not included in this implementation. See the repository's `docs/design/pi-background-tasks-assessment.md` for scope and lifecycle considerations.
+The shell portion of [pi-background-tasks](https://github.com/ismailsaleekh/pi-background-tasks) is included as the replaceable `background` built-in. See `docs/design/pi-background-tasks-assessment.md` for the original scope assessment; Pie's current paths and floating placement above supersede its earlier sidebar/pi-ext references.

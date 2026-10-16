@@ -6,6 +6,7 @@
 
 - Interactive startup offers to import Pi's `models.json` when Pie has none; importing requires confirmation and never overwrites an existing file.
 - Replaceable built-in `/usage` dashboard, adapted from pi-usage, with day, week, month, all-time and calendar views of recorded tokens and costs.
+- Replaceable background shell tools with bounded logs, process-tree cleanup, completion notifications and a top-right floating panel, adapted from pi-background-tasks.
 
 ### Fixed
 
