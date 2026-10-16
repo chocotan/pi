@@ -133,7 +133,7 @@ async function main() {
 			cwd: tempDir,
 			env: {
 				...process.env,
-				PI_EXT_CODING_AGENT_DIR: tempDir,
+				PIE_CODING_AGENT_DIR: tempDir,
 				PI_OFFLINE: "1",
 			},
 			stdio: ["ignore", "pipe", "pipe"],

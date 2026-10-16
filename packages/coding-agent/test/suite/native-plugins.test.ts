@@ -32,7 +32,7 @@ const task = (id: string, status: TaskRecord["status"] = "pending"): TaskRecord 
 	metadata: {},
 	blockedBy: [],
 });
-const subagents = () => createSubagentsExtension({ agentDir: join(tmpdir(), `pi-ext-test-${randomUUID()}`) });
+const subagents = () => createSubagentsExtension({ agentDir: join(tmpdir(), `pie-test-${randomUUID()}`) });
 
 describe("native tasks plugin", () => {
 	it("restores only the active branch and returns detached state", () => {
@@ -83,12 +83,12 @@ describe("native tasks plugin", () => {
 				nextId: 2,
 				tasks: [{ ...task("1", "in_progress"), owner: "new-run" }],
 			});
-			events.emit("pi-ext.task-run", { taskId: "1", status: "completed", owner: "old-run" });
+			events.emit("pie.task-run", { taskId: "1", status: "completed", owner: "old-run" });
 			expect(readTaskState(harness.sessionManager).tasks[0]).toMatchObject({
 				status: "in_progress",
 				owner: "new-run",
 			});
-			events.emit("pi-ext.task-run", { taskId: "1", status: "completed", owner: "new-run" });
+			events.emit("pie.task-run", { taskId: "1", status: "completed", owner: "new-run" });
 			expect(readTaskState(harness.sessionManager).tasks[0].status).toBe("completed");
 		} finally {
 			harness.cleanup();
@@ -224,7 +224,7 @@ describe("native subagents plugin", () => {
 				nextId: 2,
 				tasks: [{ ...task("1", "in_progress"), owner: "old-run", agentType: "worker" }],
 			});
-			harness.sessionManager.appendCustomEntry("pi-ext.subagent", {
+			harness.sessionManager.appendCustomEntry("pie.subagent", {
 				id: "old-run",
 				agent: "worker",
 				prompt: "Old task",
@@ -244,7 +244,7 @@ describe("native subagents plugin", () => {
 			expect(readTaskState(harness.sessionManager).tasks[0].status).toBe("pending");
 			const entry = harness.sessionManager
 				.getBranch()
-				.findLast((item) => item.type === "custom" && item.customType === "pi-ext.subagent");
+				.findLast((item) => item.type === "custom" && item.customType === "pie.subagent");
 			expect(entry?.type === "custom" ? entry.data : undefined).toMatchObject({
 				status: "interrupted",
 				taskId: "1",
@@ -282,7 +282,7 @@ describe("native subagents plugin", () => {
 				.render(80)
 				.map(stripAnsi);
 			expect(rows.join("\n")).toContain("Inspect auth flow");
-			expect(rows[0]).toContain("Subagents");
+			expect(rows[0]).toContain("Inspect auth flow");
 			expect(record.model).toBe(`${harness.getModel().provider}/${harness.getModel().id}`);
 			expect(harness.session.getSessionStats().assistantMessages).toBe(2);
 			expect(
@@ -308,7 +308,7 @@ describe("native subagents plugin", () => {
 			expect(
 				harness.sessionManager
 					.getEntries()
-					.filter((entry) => entry.type === "custom" && entry.customType === "pi-ext.subagent"),
+					.filter((entry) => entry.type === "custom" && entry.customType === "pie.subagent"),
 			).toHaveLength(0);
 		} finally {
 			harness.cleanup();

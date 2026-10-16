@@ -43,8 +43,8 @@ export function createAskUserExtension(): ExtensionFactory {
 						),
 						isError: true,
 					};
-				pi.events.emit("pi-ext.ask-user.prompt", params);
-				pi.events.emit("pi-ext.ask-user.blocked", { active: true });
+				pi.events.emit("pie.ask-user.prompt", params);
+				pi.events.emit("pie.ask-user.blocked", { active: true });
 				let removeAbort = () => {};
 				try {
 					let result: QuestionnaireResult | undefined;
@@ -87,7 +87,7 @@ export function createAskUserExtension(): ExtensionFactory {
 					return buildQuestionnaireResponse(result, params);
 				} finally {
 					removeAbort();
-					pi.events.emit("pi-ext.ask-user.blocked", { active: false });
+					pi.events.emit("pie.ask-user.blocked", { active: false });
 				}
 			},
 			renderCall(args, theme) {

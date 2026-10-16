@@ -17,6 +17,7 @@ type AssistantUsage = {
 
 function createSession(options: {
 	sessionName: string;
+	cwd?: string;
 	modelId?: string;
 	provider?: string;
 	reasoning?: boolean;
@@ -82,7 +83,7 @@ function createSession(options: {
 			getSessionId: () => "test-session",
 			getLeafId: () => null,
 			getSessionName: () => options.sessionName,
-			getCwd: () => "/tmp/project",
+			getCwd: () => options.cwd ?? "/tmp/project",
 		},
 		getContextUsage: () => options.contextUsage ?? { tokens: 24_600, contextWindow: 200_000, percent: 12.3 },
 		routedModel: options.routedModel,
@@ -240,17 +241,102 @@ describe("FooterComponent width handling", () => {
 		expect(statsLine).toContain("CH25.0%");
 	});
 
-	it("right-aligns the native model and thinking on the statistics row", () => {
+	it("shows path, usage, model and thinking on one right-aligned row", () => {
 		const footer = new FooterComponent(
-			createSession({ sessionName: "", modelId: "gpt-6.1-sol", reasoning: true, thinkingLevel: "high" }),
+			createSession({
+				sessionName: "",
+				modelId: "gpt-6.1-sol",
+				reasoning: true,
+				thinkingLevel: "high",
+				usage: { input: 12345, output: 6789, cacheRead: 50, cacheWrite: 10, cost: { total: 0.5 } },
+			}),
 			createFooterData(1),
 		);
-		for (const width of [48, 80, 120]) {
+		for (const width of [80, 120, 200]) {
 			const rows = footer.render(width).map(stripAnsi);
-			expect(visibleWidth(rows[1])).toBe(width);
-			expect(rows[1].endsWith("gpt-6.1-sol • high")).toBe(true);
-			expect(rows[0]).toContain("main");
+			expect(rows).toHaveLength(1);
+			expect(visibleWidth(rows[0])).toBe(width);
+			expect(rows[0].endsWith("gpt-6.1-sol • high")).toBe(true);
+			expect(rows[0]).toContain("/tmp/project (main)");
+			expect(rows[0]).toContain("↑12k ↓6.8k");
 		}
+		const wideRow = stripAnsi(footer.render(200)[0]);
+		expect(wideRow).toContain("R50 W10 CH");
+		expect(wideRow).toContain("$0.500");
+		expect(wideRow).toContain("12.3%/200k (auto)");
+	});
+
+	it("drops optional stats and truncates the path before core tokens and thinking", () => {
+		const footer = new FooterComponent(
+			createSession({
+				sessionName: "long session name",
+				cwd: "/tmp/a/very/long/project/path",
+				modelId: "test-model",
+				reasoning: true,
+				thinkingLevel: "high",
+				usage: { input: 12345, output: 6789, cacheRead: 50000, cacheWrite: 100, cost: { total: 0.5 } },
+			}),
+			createFooterData(2),
+		);
+		const [row] = footer.render(48).map(stripAnsi);
+		expect(visibleWidth(row)).toBe(48);
+		expect(row).toContain("/tmp/");
+		expect(row).toContain("…");
+		expect(row).toContain("↑12k ↓6.8k");
+		expect(row.endsWith("test-model • high")).toBe(true);
+		expect(row).not.toContain("CH");
+		expect(row).not.toContain("$0.500");
+		expect(row).not.toContain("(test)");
+	});
+
+	it("keeps Unicode and ANSI content within even very narrow widths", () => {
+		const footer = new FooterComponent(
+			createSession({
+				sessionName: "\u001b[31m한글 👩🏽‍💻 é\u001b[0m".repeat(10),
+				cwd: "/tmp/项目",
+				modelId: "模".repeat(30),
+				routedModel: { model: { id: "physical-model" }, thinkingLevel: "medium" },
+				reasoning: true,
+				thinkingLevel: "high",
+				usage: { input: 12345, output: 6789, cacheRead: 50000, cacheWrite: 100, cost: { total: 0.5 } },
+				contextUsage: { tokens: 190000, contextWindow: 200000, percent: 95 },
+			}),
+			createFooterData(2),
+		);
+		for (let width = 0; width <= 200; width++) {
+			const rows = footer.render(width);
+			expect(rows).toHaveLength(1);
+			expect(visibleWidth(rows[0])).toBeLessThanOrEqual(width);
+		}
+		expect(stripAnsi(footer.render(60)[0])).toContain("↑12k ↓6.8k");
+		expect(stripAnsi(footer.render(60)[0]).endsWith(" • high")).toBe(true);
+	});
+
+	it("retains sorted and sanitized extension statuses on their own row", () => {
+		const footer = new FooterComponent(createSession({ sessionName: "" }), {
+			...createFooterData(1),
+			getExtensionStatuses: () =>
+				new Map([
+					["z", "\u001b[32mReady\u001b[0m"],
+					["a", "Running\n\t task"],
+				]),
+		});
+		const rows = footer.render(80).map(stripAnsi);
+		expect(rows).toHaveLength(2);
+		expect(rows[1]).toBe("Running task Ready");
+		for (let width = 0; width <= 20; width++) {
+			for (const row of footer.render(width)) expect(visibleWidth(row)).toBeLessThanOrEqual(width);
+		}
+	});
+
+	it("shows provider and detached branch when supplied and space permits", () => {
+		const footer = new FooterComponent(createSession({ sessionName: "", reasoning: true }), {
+			...createFooterData(2),
+			getGitBranch: () => "detached",
+		});
+		const [row] = footer.render(120).map(stripAnsi);
+		expect(row).toContain("/tmp/project (detached)");
+		expect(row.endsWith("(test) test-model • thinking off")).toBe(true);
 	});
 	it("omits the Git placeholder when the directory is not a repository", () => {
 		const footer = new FooterComponent(createSession({ sessionName: "" }), {

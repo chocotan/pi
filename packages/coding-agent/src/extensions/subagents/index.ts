@@ -25,7 +25,7 @@ import { SubagentPanel } from "./panel.ts";
 import { renderSubagentCall } from "./renderers.ts";
 import { SubagentDetailView } from "./view.ts";
 
-export const SUBAGENT_ENTRY = "pi-ext.subagent";
+export const SUBAGENT_ENTRY = "pie.subagent";
 const recordSchema = Type.Object({
 	id: Type.String(),
 	agent: Type.String(),
@@ -91,7 +91,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 		};
 		const viewResult = (record: SubagentRecord) =>
 			pi.sendMessage({
-				customType: "pi-ext.subagent-result",
+				customType: "pie.subagent-result",
 				content: `${record.agent} · ${record.status}\n${record.output || record.error || "No output yet"}${record.sessionFile ? `\nFull session: ${record.sessionFile}` : ""}`,
 				display: true,
 				details: record,
@@ -141,7 +141,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			const list = [...records.values()];
 			if (!ctx.hasUI) {
 				pi.sendMessage({
-					customType: "pi-ext.subagent-list",
+					customType: "pie.subagent-list",
 					content: JSON.stringify(
 						{ definitions: discoverAgentDefinitions(ctx.cwd, agentDir, ctx.isProjectTrusted()), runs: list },
 						null,
@@ -177,7 +177,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 			if (!context) return;
 			const ctx = context;
 			ctx.ui.setWidget(
-				"pi-ext.subagents",
+				"pie.subagents",
 				!records.size || panelDismissed
 					? undefined
 					: (tui) =>
@@ -495,7 +495,7 @@ export function createSubagentsExtension(options: { agentDir?: string } = {}): E
 						if (!closing && (args.run_in_background ?? true))
 							pi.sendMessage(
 								{
-									customType: "pi-ext.subagent-completion",
+									customType: "pie.subagent-completion",
 									content: `Subagent ${record.id} (${record.agent}) ${record.status}.\n${record.output || record.error || "No output"}${record.sessionFile ? `\nFull session: ${record.sessionFile}` : ""}`,
 									display: true,
 									details: record,

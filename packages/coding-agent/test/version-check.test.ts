@@ -10,122 +10,87 @@ import {
 import { allowNetwork } from "./test-network-env.ts";
 
 const originalSkipVersionCheck = process.env.PI_SKIP_VERSION_CHECK;
-
+const release = (version: string, note?: string) => ({
+	version: "1.2.0",
+	name: "@earendil-works/pi-coding-agent",
+	piConfig: { name: "pie", version, ...(note ? { note } : {}) },
+});
 beforeEach(() => {
 	allowNetwork();
 });
-
 afterEach(() => {
 	vi.unstubAllGlobals();
-	if (originalSkipVersionCheck === undefined) {
-		delete process.env.PI_SKIP_VERSION_CHECK;
-	} else {
-		process.env.PI_SKIP_VERSION_CHECK = originalSkipVersionCheck;
-	}
+	if (originalSkipVersionCheck === undefined) delete process.env.PI_SKIP_VERSION_CHECK;
+	else process.env.PI_SKIP_VERSION_CHECK = originalSkipVersionCheck;
 });
 
-describe("version checks", () => {
-	it("compares package versions", () => {
-		expect(comparePackageVersions("0.70.6", "0.70.5")).toBeGreaterThan(0);
-		expect(comparePackageVersions("0.70.5", "0.70.5")).toBe(0);
-		expect(comparePackageVersions("0.70.4", "0.70.5")).toBeLessThan(0);
-		expect(comparePackageVersions("5.0.0-beta.20", "5.0.0-beta.9")).toBeGreaterThan(0);
-		expect(isNewerPackageVersion("0.70.5", "0.70.5")).toBe(false);
-		expect(isNewerPackageVersion("0.70.6", "0.70.5")).toBe(true);
+describe("Pie version checks", () => {
+	it("compares versions", () => {
+		expect(comparePackageVersions("0.2.0", "0.1.0")).toBeGreaterThan(0);
+		expect(comparePackageVersions("0.1.0", "0.1.0")).toBe(0);
+		expect(isNewerPackageVersion("0.1.0", "0.2.0")).toBe(false);
 	});
-
-	it("returns only newer versions", async () => {
-		const fetchMock = vi.fn(async () => Response.json({ version: "1.2.3" }));
+	it("checks this fork and compares product versions rather than upstream SDK versions", async () => {
+		const fetchMock = vi.fn(async () => Response.json(release("0.2.0")));
 		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(checkForNewPiVersion("1.2.3")).resolves.toBeUndefined();
-		await expect(checkForNewPiVersion("1.2.2")).resolves.toEqual({ version: "1.2.3" });
-	});
-
-	it("uses the pi.dev version check api with a pi user agent", async () => {
-		const fetchMock = vi.fn(async () => Response.json({ version: "1.2.4" }));
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(getLatestPiVersion("1.2.3")).resolves.toBe("1.2.4");
+		await expect(checkForNewPiVersion("0.1.0")).resolves.toEqual({ version: "0.2.0" });
 		expect(fetchMock).toHaveBeenCalledWith(
-			"https://pi.dev/api/latest-version",
-			expect.objectContaining({
-				headers: expect.objectContaining({
-					"User-Agent": expect.stringMatching(/^pi\/1\.2\.3 /),
-					accept: "application/json",
-				}),
-			}),
+			"https://raw.githubusercontent.com/chocotan/pi/feat/pi-ext-native-workflow-ui/packages/coding-agent/package.json",
+			expect.objectContaining({ headers: expect.objectContaining({ "User-Agent": "pie/0.1.0" }) }),
 		);
+		await expect(checkForNewPiVersion("0.2.0")).resolves.toBeUndefined();
 	});
-
-	it("retries a transient version request when explicitly requested", async () => {
+	it.each([
+		null,
+		{},
+		{ version: "1.3.0" },
+		{ piConfig: { name: "pi", version: "1.3.0" } },
+		{ piConfig: { name: "pie", version: "" } },
+	])("ignores unrelated or invalid metadata: %j", async (payload) => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json(payload)),
+		);
+		await expect(getLatestPiRelease("0.1.0")).resolves.toBeUndefined();
+	});
+	it("retries only when explicitly requested", async () => {
 		const fetchMock = vi
 			.fn()
 			.mockRejectedValueOnce(new Error("fetch failed"))
 			.mockRejectedValueOnce(new Error("fetch failed"))
-			.mockResolvedValueOnce(Response.json({ version: "1.2.4" }));
+			.mockResolvedValueOnce(Response.json(release("0.2.0")));
 		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(getLatestPiRelease("1.2.3", { retry: true })).resolves.toEqual({ version: "1.2.4" });
+		await expect(getLatestPiRelease("0.1.0", { retry: true })).resolves.toEqual({ version: "0.2.0" });
 		expect(fetchMock).toHaveBeenCalledTimes(3);
 	});
-
-	it("keeps automatic version checks to one request", async () => {
+	it("keeps automatic checks to one request", async () => {
 		const fetchMock = vi.fn().mockRejectedValue(new Error("fetch failed"));
 		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(checkForNewPiVersion("1.2.3")).resolves.toBeUndefined();
+		await expect(checkForNewPiVersion("0.1.0")).resolves.toBeUndefined();
 		expect(fetchMock).toHaveBeenCalledOnce();
 	});
-
-	it("formats nested network error details", () => {
+	it("takes update notes only from Pie metadata", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json(release("0.2.0", " Pie changes "))),
+		);
+		await expect(getLatestPiRelease("0.1.0")).resolves.toEqual({ version: "0.2.0", note: "Pie changes" });
+	});
+	it("respects disabled automatic checks while allowing direct queries", async () => {
+		process.env.PI_SKIP_VERSION_CHECK = "1";
+		const fetchMock = vi.fn(async () => Response.json(release("0.2.0")));
+		vi.stubGlobal("fetch", fetchMock);
+		await expect(checkForNewPiVersion("0.1.0")).resolves.toBeUndefined();
+		expect(fetchMock).not.toHaveBeenCalled();
+		await expect(getLatestPiVersion("0.1.0")).resolves.toBe("0.2.0");
+	});
+	it("formats nested network errors", () => {
 		const error = new Error("fetch failed", {
 			cause: new AggregateError([
-				Object.assign(new Error("connect timeout"), { code: "ETIMEDOUT" }),
-				Object.assign(new Error("network unreachable"), { code: "ENETUNREACH" }),
+				Object.assign(new Error("timeout"), { code: "ETIMEDOUT" }),
+				Object.assign(new Error("unreachable"), { code: "ENETUNREACH" }),
 			]),
 		});
-
 		expect(formatVersionCheckError(error)).toBe("fetch failed (ETIMEDOUT, ENETUNREACH)");
-	});
-
-	it("returns the active package metadata from the version check api", async () => {
-		const fetchMock = vi.fn(async () =>
-			Response.json({
-				packageName: "@new-scope/pi",
-				version: "1.2.4",
-			}),
-		);
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(getLatestPiRelease("1.2.3")).resolves.toEqual({
-			packageName: "@new-scope/pi",
-			version: "1.2.4",
-		});
-	});
-
-	it("returns update notes from the version check api", async () => {
-		const fetchMock = vi.fn(async () => Response.json({ note: " **Read this** ", version: "1.2.4" }));
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(getLatestPiRelease("1.2.3")).resolves.toEqual({ note: "**Read this**", version: "1.2.4" });
-	});
-
-	it("skips automatic api calls when version checks are disabled", async () => {
-		process.env.PI_SKIP_VERSION_CHECK = "1";
-		const fetchMock = vi.fn();
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(checkForNewPiVersion("1.2.3")).resolves.toBeUndefined();
-		expect(fetchMock).not.toHaveBeenCalled();
-	});
-
-	it("allows direct api calls when automatic version checks are disabled", async () => {
-		process.env.PI_SKIP_VERSION_CHECK = "1";
-		const fetchMock = vi.fn(async () => Response.json({ version: "1.2.4" }));
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(getLatestPiVersion("1.2.3")).resolves.toBe("1.2.4");
-		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 });

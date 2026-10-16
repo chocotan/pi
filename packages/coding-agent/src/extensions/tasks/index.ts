@@ -5,8 +5,8 @@ import type { ExtensionAPI, ExtensionContext } from "../../core/extensions/types
 import type { ReadonlySessionManager } from "../../core/session-manager.ts";
 import { TodoPanel } from "./view.ts";
 
-export const TASK_STATE_ENTRY = "pi-ext.tasks";
-export const TASK_RUN_EVENT = "pi-ext.task-run";
+export const TASK_STATE_ENTRY = "pie.tasks";
+export const TASK_RUN_EVENT = "pie.task-run";
 const taskSchema = Type.Object({
 	id: Type.String(),
 	subject: Type.String({ minLength: 1, maxLength: 400 }),
@@ -92,7 +92,7 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 	let context: ExtensionContext | undefined;
 	let state: TaskState = { nextId: 1, tasks: [] };
 	let dismissed = false;
-	const hidePanel = () => context?.ui.setWidget("pi-ext.todo", undefined);
+	const hidePanel = () => context?.ui.setWidget("pie.todo", undefined);
 	const resetPanel = () => {
 		hidePanel();
 		dismissed = false;
@@ -106,7 +106,7 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 			return;
 		}
 		ctx.ui.setWidget(
-			"pi-ext.todo",
+			"pie.todo",
 			(tui) =>
 				new TodoPanel(
 					tui,
@@ -117,7 +117,7 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 					},
 					(task) => {
 						pi.sendMessage({
-							customType: "pi-ext.task-detail",
+							customType: "pie.task-detail",
 							content: JSON.stringify(task, null, 2),
 							display: true,
 						});
@@ -249,7 +249,7 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 					return;
 				}
 				pi.sendMessage({
-					customType: "pi-ext.task-list",
+					customType: "pie.task-list",
 					content: JSON.stringify(readTaskState(ctx.sessionManager).tasks, null, 2),
 					display: true,
 				});

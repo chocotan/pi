@@ -1,6 +1,6 @@
-# Pi-ext
+# Pie
 
-See [Pi-ext built-in plugins and terminal features](pi-ext.md) for Todo, Subagents, structured questions, the sidebar, and the `~/.pi-ext` configuration directory.
+See [Pie built-in plugins and terminal features](pie.md) for Todo, Subagents, structured questions, the single-pane UI with floating panels, provider setup, and the `~/.pie` configuration directory. Start with the [fork README](../../../README.md) for Pie installation. The reference pages below come from Pi upstream and may retain its original names; use Pie's command, paths, and environment variables as described in the feature guide.
 
 Pi is an extensible AI agent that works from your terminal. Give it a goal and a working folder, and it can inspect files, run commands, edit content, and work through multi-step tasks.
 

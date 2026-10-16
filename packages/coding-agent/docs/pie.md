@@ -1,26 +1,34 @@
-# pi-ext built-in plugins
+# Pie built-in plugins
 
-pi-ext ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a round composer and dismissible Todo/Subagents panels stacked at the top right.
+Pie ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a rounded composer and dismissible Todo/Subagents panels stacked at the top right. It is a fork of [Pi](https://github.com/earendil-works/pi), originally created by Mario Zechner; the original MIT license is preserved.
 
 ## Configuration directory
 
-Global configuration and runtime data live directly under `~/.pi-ext`:
+Global configuration and runtime data live directly under `~/.pie`, with no `agent` subdirectory:
 
 - `auth.json`, `models.json`, `settings.json`, `keybindings.json`
 - `extensions/`, `skills/`, `prompts/`, `themes/`, `agents/`
 - `sessions/` and `subagents/`
 
-Project configuration lives in `<cwd>/.pi-ext`. The workspace remains the session's current directory. Existing `~/.pi/agent` data is not automatically copied or loaded.
+Project configuration lives in `<cwd>/.pie`. The workspace remains the session's current directory. Previous Pi and pi-ext directories are not automatically copied or loaded.
 
-Override the directory with `PI_EXT_CODING_AGENT_DIR`; override session storage with `PI_EXT_CODING_AGENT_SESSION_DIR`. Upstream documentation examples using `~/.pi/agent`, `.pi`, and `PI_CODING_AGENT_DIR` refer to these corresponding pi-ext locations and names in this fork.
+Override the directory with `PIE_CODING_AGENT_DIR`; override session storage with `PIE_CODING_AGENT_SESSION_DIR`. Old command names, directory names, and directory override variables have no compatibility fallback.
 
-Run from source:
+Reference documentation copied from upstream may still use `pi`, `~/.pi/agent`, `.pi`, `PI_CODING_AGENT_DIR`, or `PI_CODING_AGENT_SESSION_DIR`. Use the corresponding Pie command and locations above. SDK imports and internal npm package names remain `@earendil-works/*`; the package author remains Mario Zechner.
+
+Run from a source checkout after installing dependencies with `npm install --ignore-scripts`:
 
 ```sh
 ./pi-test.sh
 ```
 
-The package supplies `pi-ext` and the existing `pi` executable entrypoint.
+The CLI binary is only `pie`. The source helper keeps its `pi-test.sh` filename. See the [root README](../../../README.md#run-from-source) for source setup and local package installation. Upstream installers and upstream npm releases do not install this fork.
+
+## Provider configuration
+
+Run `/login` to configure a supported subscription or API key, then `/model` to choose a model. Provider API-key environment variables also work. Credentials are stored in `~/.pie/auth.json`; compatible endpoints and custom model definitions belong in `~/.pie/models.json`. Opening `/model` reloads that configuration.
+
+See [Providers](providers.md) for authentication, [Models](models.md) for compatible endpoints and local models, and [Custom Providers](custom-provider.md) for extension-based integrations. Keep credentials private.
 
 ## Enable, disable, or replace plugins
 
@@ -30,7 +38,7 @@ Built-ins load by default in the CLI:
 - `builtin:subagents`
 - `builtin:ask-user-question`
 
-Disable individual plugins in `~/.pi-ext/settings.json`:
+Disable individual plugins in `~/.pie/settings.json`:
 
 ```json
 {
@@ -79,7 +87,7 @@ The `Agent` tool row shows its invocation description rather than listing prompt
 
 Built-in profiles: `worker`, `researcher`, `reviewer`.
 
-User definitions: `~/.pi-ext/agents/*.md`. Trusted project definitions: `.pi-ext/agents/*.md`. Project definitions override user and built-in names only in a trusted project.
+User definitions: `~/.pie/agents/*.md`. Trusted project definitions: `.pie/agents/*.md`. Project definitions override user and built-in names only in a trusted project.
 
 ```markdown
 ---

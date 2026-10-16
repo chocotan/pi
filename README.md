@@ -1,208 +1,174 @@
-<p align="center">
-  <a href="https://pi.dev">
-    <img alt="pi logo" src="https://pi.dev/logo-auto.svg" width="128">
-  </a>
-</p>
-<p align="center">
-  <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
-  <a href="https://www.npmjs.com/package/@earendil-works/pi-coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@earendil-works/pi-coding-agent?style=flat-square" /></a>
-</p>
+# Pie
 
-> New issues and PRs from new contributors are auto-closed by default. Maintainers review auto-closed issues daily. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Pie is a source fork of [Pi](https://github.com/earendil-works/pi), originally created by **Mario Zechner**. It keeps Pi's extensible agent runtime and adds built-in task tracking, isolated subagents, structured user questions, and a single-pane terminal interface with floating panels.
 
-# Pi-ext
+Its product version starts at **0.1.0**, independent of upstream SDK package versions. This fork lives at [chocotan/pi](https://github.com/chocotan/pi). Its command is `pie`, its global configuration directory is `~/.pie`, and project configuration lives in `.pie`. The original MIT license and attribution are preserved in [LICENSE](LICENSE).
 
-Pi-ext is a source fork of Pi with built-in task, subagent, and ask-user plugins, a round composer, dismissible floating Todo and Subagents panels at the top right. Its configuration and runtime directory is `~/.pi-ext`. See [Pi-ext features and configuration](packages/coding-agent/docs/pi-ext.md).
+## What Pie adds
 
-Pi is a minimal, extensible agent harness that you can make your own.
+- **Replaceable built-in plugins:** Todo tools, isolated subagents, and `ask_user_question` load by default. Disable or replace each plugin independently through the extension loader.
+- **Single-pane terminal UI:** the conversation uses the terminal width, with a rounded composer and dismissible Todo and Subagents panels floating at the top right. Empty panels stay hidden, and the panels do not take keyboard focus.
+- **Purpose-based tool titles:** coding tools and delegated runs show a short description of their purpose. Expand a row to inspect its full arguments and output.
+- **Visible progress:** tool and subagent rows share animated dots, completion states, and elapsed times. Clickable titles, panel entries, and close buttons highlight on hover in fullscreen mode.
+- **Subagent conversations:** open a delegated run from its floating panel to inspect instructions, Thinking, tool calls, and answers, then return to the parent conversation.
+- **Ponytail built in:** `/ponytail lite|full|ultra|off`, with review, audit, debt, gain and help skills, adapted from [Dietrich Gebert's Ponytail](https://github.com/DietrichGebert/ponytail) under MIT. Disable the plugin with `-builtin:ponytail`.
+- **Single-line session footer:** folder, branch, usage totals, model and thinking level share one row; narrow windows shorten secondary information.
+- **Provider configuration:** use `/login` and `/model` for supported providers, or configure compatible endpoints and local models in `~/.pie/models.json`.
 
-Adapt Pi to your workflows, not the other way around. Customize Pi with [extensions](packages/coding-agent/docs/extensions.md), [skills](packages/coding-agent/docs/skills.md), [prompt templates](packages/coding-agent/docs/prompt-templates.md), and [themes](packages/coding-agent/docs/themes.md). Bundle them as [Pi packages](packages/coding-agent/docs/packages.md) and share via npm or git.
+See [Pie features and configuration](packages/coding-agent/docs/pie.md) for plugin settings, task and subagent behavior, structured questions, and terminal details.
 
-Pi-ext ships Todo and isolated subagents as default built-in plugins that can be disabled or replaced independently.
+## Install and update
 
-Use Pi [interactively](packages/coding-agent/docs/usage.md), automate it in [print or JSON mode](packages/coding-agent/docs/cli.md), control it over [RPC](packages/coding-agent/docs/rpc.md), or build apps with the [Pi TypeScript SDK](packages/coding-agent/docs/sdk.md). See [OpenClaw](https://github.com/OpenClaw/OpenClaw) for a real-world integration.
-
-## Getting started
-
-Install the command-line interface:
+Install Pie on Linux or macOS with Node.js 22.19+ and Git:
 
 ```bash
-curl -fsSL https://pi.dev/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/chocotan/pi/feat/pi-ext-native-workflow-ui/scripts/install.sh | bash
 ```
 
-On Windows:
-
-```shell
-powershell -c "irm https://pi.dev/install.ps1 | iex"
-```
-
-The installer pins all dependencies and updates Pi with `pi update`. Alternatively, install directly with npm, which does not pin transitive dependencies:
+Or install from a Git checkout:
 
 ```bash
-npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+git clone --branch feat/pi-ext-native-workflow-ui https://github.com/chocotan/pi.git
+cd pi
+./scripts/install.sh --local
 ```
 
-Pi requires Node.js 22.19 or newer. The macOS, Linux, and Windows installers can install it if needed. Pi does not require dependency lifecycle scripts for a normal npm installation.
+The installer keeps a managed checkout in `~/.pie/source`, versioned runtimes in `~/.pie/runtime`, and the `pie` launcher in `~/.local/bin`. Add that bin directory to your `PATH` if needed. Dependency lifecycle scripts are disabled; compilation runs explicitly. User configuration is not overwritten or imported.
 
-Start Pi in the directory where you want it to work:
+Update the installed application with `pie update`, or:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chocotan/pi/feat/pi-ext-native-workflow-ui/scripts/update.sh | bash
+```
+
+Git checkouts can also run `./scripts/update.sh`. Updates require a clean managed checkout and fast-forward its recorded branch; prior runtimes remain available if a build fails. Use `--bin-dir` or `PIE_INSTALL_BIN_DIR` to choose the launcher directory and `PIE_CODING_AGENT_DIR` to choose a separate installation/configuration root. Windows users can run Pie from source or a local npm consumer as described below; these shell installers target Linux/macOS.
+
+## Run from source
+
+Use Node.js **22.19 or newer**. Clone this fork and check out the branch or revision you intend to use:
+
+```bash
+git clone --branch feat/pi-ext-native-workflow-ui https://github.com/chocotan/pi.git
+cd pi
+npm install --ignore-scripts
+./pi-test.sh
+```
+
+`./pi-test.sh` runs Pie directly from source; a build is not required. The script retains its source filename, but the application and CLI command are named `pie`.
+
+To work in another directory, invoke the script by its absolute path from that directory:
 
 ```bash
 cd /path/to/project
-pi
+/path/to/pi/pi-test.sh
 ```
 
-For a built-in AI provider, run `/login` inside Pi to connect a subscription or API key. Then give Pi a task.
+Inside Pie, run `/login` to connect a supported subscription or API key, then `/model` to choose a model. Give Pie a task in the conversation.
 
-See the [documentation](https://pi.dev/docs/latest) for full setup and usage instructions, or [visit pi.dev](https://pi.dev) for demos.
+The installers at pi.dev and the published upstream `@earendil-works/pi-coding-agent` npm package install **Pi upstream**. Use this fork's scripts above for Pie; no Pie npm publication is assumed.
 
-## Run with Nix
+## Configuration and providers
+
+Global configuration and runtime data live directly under `~/.pie`, with no `agent` subdirectory:
+
+```text
+~/.pie/
+  auth.json
+  models.json
+  settings.json
+  keybindings.json
+  extensions/
+  skills/
+  prompts/
+  themes/
+  agents/
+  sessions/
+  subagents/
+```
+
+Project resources live in `<project>/.pie`. Override the global directory with `PIE_CODING_AGENT_DIR`, or session storage with `PIE_CODING_AGENT_SESSION_DIR`.
+
+Pie does not load or migrate previous Pi or pi-ext directories automatically. It provides no `pi` or `pi-ext` command alias and no fallback to the old directory override variables. Move any configuration you want to keep into the Pie locations yourself.
+
+For a supported provider, use `/login` or its API-key environment variable. For an OpenAI-compatible endpoint, for example a local Ollama server, add an entry to `~/.pie/models.json`:
+
+```json
+{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "models": [{ "id": "qwen2.5-coder:7b" }]
+    }
+  }
+}
+```
+
+The dummy key is for this local example; use the endpoint's actual authentication when required. Opening `/model` reloads the configuration. Keep credentials private. See [Providers](packages/coding-agent/docs/providers.md), [Models](packages/coding-agent/docs/models.md), and [Custom Providers](packages/coding-agent/docs/custom-provider.md) for supported authentication, model metadata, and extension-based providers.
+
+## Local package installation and SDK use
+
+Internal npm and SDK package names remain `@earendil-works/*`, including `@earendil-works/pi-coding-agent`. The package author remains Mario Zechner. These names identify the libraries; the fork's CLI binary is only `pie`.
+
+To install this checkout into an existing local npm project, build and pack a coherent set of local packages from the repository root:
 
 ```bash
-nix run github:earendil-works/pi/stable
+npm run pack:packages -- --out .artifacts/pie-packages
+node scripts/use-local-packages.mjs \
+  --manifest .artifacts/pie-packages/manifest.json \
+  --consumer ../my-project \
+  --package @earendil-works/pi-coding-agent
+cd ../my-project
+npm install --ignore-scripts
+./node_modules/.bin/pie
 ```
 
-`stable` points at the latest release. Install it with `nix profile add github:earendil-works/pi/stable` and update with `nix profile upgrade pi`. Use a release tag such as `github:earendil-works/pi/v1.0.0` to pin a version, or `github:earendil-works/pi` for unreleased changes on `main`. Nix builds Pi from source.
+The consumer directory must already contain a `package.json`. The pack helper builds all public packages and refreshes model data; pass `--offline-model-data` to use already-hydrated model data without refreshing it. The wiring helper updates the consumer's direct dependencies and transitive overrides to use the local artifact set, so internal dependencies come from this checkout too. Keep the artifact directory available and repeat the pack, wiring, and install steps after source changes. This is a local installation, not a registry publication or global install.
 
-Supports ARM64 and x86-64 on Linux and macOS. Use `nix build .` or `nix run .` to build or run your checkout.
+For SDK-only use, select packages such as `@earendil-works/pi-agent-core` or `@earendil-works/pi-durable` instead. Repeat `--package` for multiple direct dependencies. pnpm consumers can add `--package-manager pnpm`, point `--consumer` at their workspace root, and run `pnpm install --ignore-scripts` there.
 
-Nix builds are offline, so the bundled model data comes from a pi.dev model catalog revision pinned in `nix/model-catalog.json`. At runtime, Pi still overlays newer catalog data from pi.dev as usual. The Nix workflow replaces the pin on `main` when it no longer matches the checkout, for example after a provider is added or gains a new model type. To refresh it by hand:
+## Documentation and extension APIs
 
-```bash
-npm run update:model-catalog-pin
-```
+Pie retains Pi's extension, provider, and SDK APIs:
+
+- [Documentation index](packages/coding-agent/docs/index.md) and [interactive usage](packages/coding-agent/docs/usage.md)
+- [Extensions](packages/coding-agent/docs/extensions.md), [skills](packages/coding-agent/docs/skills.md), [prompt templates](packages/coding-agent/docs/prompt-templates.md), [themes](packages/coding-agent/docs/themes.md), and [packages](packages/coding-agent/docs/packages.md)
+- [CLI and print mode](packages/coding-agent/docs/cli.md), [JSON events](packages/coding-agent/docs/json.md), and [RPC](packages/coding-agent/docs/rpc.md)
+- [TypeScript SDK](packages/coding-agent/docs/sdk.md) and [custom providers](packages/coding-agent/docs/custom-provider.md)
+
+Much of the reference documentation is copied from upstream and may retain Pi names, commands, and paths. For this fork, use `pie` instead of the upstream CLI command, `~/.pie` instead of `~/.pi/agent`, `.pie` instead of `.pi`, and the `PIE_CODING_AGENT_DIR` / `PIE_CODING_AGENT_SESSION_DIR` overrides. npm import names remain unchanged. Follow this README for Pie installation rather than upstream installer examples.
 
 ## Packages
 
-This monorepo contains the Pi CLI and its supporting libraries.
-
 | Package | Description |
 |---------|-------------|
-| **[@earendil-works/chord](packages/chord)** | Typed host runtime for hot-reloadable plugins, contracts, replicated state, and RPC over JSON links |
-| **[@earendil-works/pi-telemetry](packages/telemetry)** | Vendor-neutral telemetry contracts, reference adapter, conformance tests, and typed schemas |
-| **[@earendil-works/pi-ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@earendil-works/pi-durable](packages/durable)** | Durable conversation, task, and document runtime |
-| **[@earendil-works/pi-agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@earendil-works/pi-coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@earendil-works/pi-tui](packages/tui)** | Terminal UI library with differential rendering |
+| [@earendil-works/chord](packages/chord) | Typed host runtime for hot-reloadable plugins and RPC |
+| [@earendil-works/pi-telemetry](packages/telemetry) | Telemetry contracts, adapters, and schemas |
+| [@earendil-works/pi-ai](packages/ai) | Unified multi-provider LLM API |
+| [@earendil-works/pi-durable](packages/durable) | Durable conversation, task, and document runtime |
+| [@earendil-works/pi-agent-core](packages/agent) | Agent runtime with tool calling and state management |
+| [@earendil-works/pi-coding-agent](packages/coding-agent) | Pie CLI and coding-agent SDK in this checkout |
+| [@earendil-works/pi-tui](packages/tui) | Terminal UI library |
 
-For Slack/chat automation and workflows see [earendil-works/pi-chat](https://github.com/earendil-works/pi-chat).
+## Permissions
 
-## Permissions & Containerization
+Pie runs with the permissions of the user and process that launched it. Project trust controls resource loading; it does not sandbox tools. Subagent tool restrictions are not an operating-system sandbox.
 
-Pi does not include a built-in permission system for restricting filesystem, process, network, or credential access. By default, it runs with the permissions of the user and process that launched it.
-
-If you need stronger boundaries, containerize or sandbox Pi. See [packages/coding-agent/docs/containerization.md](packages/coding-agent/docs/containerization.md) for three patterns:
-
-- **Gondolin extension**: keep `pi` and provider auth on the host while routing built-in tools and `!` commands into a local Linux micro-VM.
-- **Plain Docker**: run the whole `pi` process in a local container for simple isolation.
-- **OpenShell**: run the whole `pi` process in a policy-controlled sandbox.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and [AGENTS.md](AGENTS.md) for project-specific rules (for both humans and agents).  Longer term plans for Pi can also be found in [RFCs](https://rfc.earendil.com/keyword/pi/).
+Review [Security](packages/coding-agent/docs/security.md) and [Containerization](packages/coding-agent/docs/containerization.md) before running untrusted code or unattended automation. Containerization examples may use upstream command names; adapt them to the Pie checkout or local installation you actually run.
 
 ## Development
 
 ```bash
-npm install --ignore-scripts  # Install all dependencies without running lifecycle scripts
-npm run build         # Refresh model data, then build all packages
-npm run build:offline # Rebuild using existing model data without network access
-npm run check         # Lint, format, and type check
-./test.sh            # Run tests (skips LLM-dependent tests without API keys)
-./pi-test.sh         # Run pi from sources (can be run from any directory)
+npm install --ignore-scripts  # Install dependencies without lifecycle scripts
+npm run check                # Lint, format, and type check
+./pi-test.sh                  # Run Pie from source
 ```
 
-### Using local packages outside the monorepo
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) for contributor and development rules. Dependency and lockfile changes require review; direct external dependencies are pinned, and CI installs use `npm ci --ignore-scripts`.
 
-Build every public package into one coherent local artifact set:
+## Attribution and license
 
-```bash
-npm run pack:packages -- --out .artifacts/pi-packages
-```
+Pie builds on [Pi by Mario Zechner and its contributors](https://github.com/earendil-works/pi). Upstream project information is available at [pi.dev](https://pi.dev). The fork's changes are maintained in [chocotan/pi](https://github.com/chocotan/pi).
 
-This refreshes model data before building `pi-ai`. To avoid network access when
-model data is already hydrated, pass `--offline-model-data`.
-
-Then configure an external project to consume one package and resolve all of
-its Pi dependencies from the same artifact set. npm is the default:
-
-```bash
-node scripts/use-local-packages.mjs \
-  --manifest .artifacts/pi-packages/manifest.json \
-  --consumer ../my-project \
-  --package @earendil-works/pi-durable \
-  --package @earendil-works/pi-agent-core
-cd ../my-project
-npm install --ignore-scripts
-```
-
-For a pnpm project, point `--consumer` at the workspace root:
-
-```bash
-node scripts/use-local-packages.mjs \
-  --manifest .artifacts/pi-packages/manifest.json \
-  --consumer ../my-project \
-  --package @earendil-works/pi-agent-core \
-  --package-manager pnpm
-cd ../my-project
-pnpm install --ignore-scripts
-```
-
-Repeat `--package` for each direct dependency. The command updates the
-consumer's `package.json` with content-addressed local `file:` references. It
-writes transitive overrides to `package.json` for npm or `pnpm-workspace.yaml`
-for pnpm. Keep the artifact directory available while installing or updating
-the consumer. Re-run both commands after changing Pi source.
-
-## Building standalone binaries from release source
-
-GitHub releases include a versioned source archive covered by the release's `SHA256SUMS` file. Extract it and run the same build script used for the official standalone binaries:
-
-```bash
-VERSION="<release-version>"
-tar -xzf "pi-${VERSION}-source.tar.gz"
-cd "pi-${VERSION}"
-./scripts/build-binaries.sh --offline-model-data --platform linux-x64 --out "$PWD/out"
-```
-
-The archive includes release model data and native prebuilds. `--offline-model-data` uses that model data without refreshing provider catalogs. The script installs dependencies and builds the executable with its runtime assets; pass `--skip-install` if dependencies are already provided.
-
-## Supply-chain hardening
-
-We treat npm dependency changes as reviewed code changes.
-
-- Direct external dependencies are pinned to exact versions. Internal workspace packages remain version-ranged.
-- `.npmrc` sets `save-exact=true` and `min-release-age=2` to avoid same-day dependency releases during npm resolution.
-- `package-lock.json` is the dependency ground truth. Pre-commit blocks accidental lockfile commits unless `PI_ALLOW_LOCKFILE_CHANGE=1` is set.
-- `npm run check` verifies pinned direct deps, native TypeScript import compatibility, and the generated coding-agent install lock.
-- The pi.dev installer installs from `packages/coding-agent/install-lock/`, generated from the root lockfile, to pin transitive deps. The npm package does not pin transitive deps.
-- Local release smoke tests and npm publication use the same tarball packer; npm publishes the validated tarballs rather than repacking workspace directories.
-- Local release installs, documented npm installs, and `pi update --self` use `--ignore-scripts` where supported.
-- CI installs with `npm ci --ignore-scripts`, and a scheduled GitHub workflow runs `npm audit --omit=dev` plus `npm audit signatures --omit=dev`.
-- Install lock generation has an explicit allowlist for dependency lifecycle scripts; new lifecycle-script deps fail checks until reviewed.
-
-## Share your OSS coding agent sessions
-
-If you use Pi or other coding agents for open source work, please share your sessions.
-
-Public OSS session data helps improve coding agents with real-world tasks, tool use, failures, and fixes instead of toy benchmarks.
-
-For the full explanation, see [this post on X](https://x.com/badlogicgames/status/2037811643774652911).
-
-To publish sessions, use [`badlogic/pi-share-hf`](https://github.com/badlogic/pi-share-hf). Read its README.md for setup instructions. All you need is a Hugging Face account, the Hugging Face CLI, and `pi-share-hf`.
-
-You can also watch [this video](https://x.com/badlogicgames/status/2041151967695634619), where I show how I publish my `pi-mono` sessions.
-
-I regularly publish my own `pi-mono` work sessions here:
-
-- [badlogicgames/pi-mono on Hugging Face](https://huggingface.co/datasets/badlogicgames/pi-mono)
-
-## License
-
-MIT
-
-<p align="center">
-  <a href="https://pi.dev">pi.dev</a> domain graciously donated by
-  <br /><br />
-  <a href="https://exe.dev"><img src="packages/coding-agent/docs/images/exy.png" alt="Exy mascot" width="48" /><br />exe.dev</a>
-</p>
+Licensed under [MIT](LICENSE). The original license remains unchanged. The structured-question plugin also includes an [MIT notice for rpiv-ask-user-question](packages/coding-agent/docs/third-party/rpiv-ask-user-question-LICENSE).

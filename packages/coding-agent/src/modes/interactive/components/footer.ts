@@ -180,6 +180,8 @@ export class FooterComponent implements Component {
 		const statsParts = [];
 		if (usageTotals.input) statsParts.push(`↑${formatTokens(usageTotals.input)}`);
 		if (usageTotals.output) statsParts.push(`↓${formatTokens(usageTotals.output)}`);
+		const coreStatsCount = statsParts.length;
+		const coreStatsWidth = visibleWidth(statsParts.join(" "));
 		if (usageTotals.cacheRead) statsParts.push(`R${formatTokens(usageTotals.cacheRead)}`);
 		if (usageTotals.cacheWrite) statsParts.push(`W${formatTokens(usageTotals.cacheWrite)}`);
 		if ((usageTotals.cacheRead > 0 || usageTotals.cacheWrite > 0) && latestCacheHitRate !== undefined) {
@@ -214,77 +216,47 @@ export class FooterComponent implements Component {
 			statsParts.push(`${theme.fg("dim", "•")} ${theme.bold(theme.fg("warning", "xp"))}`);
 		}
 
-		let statsLeft = statsParts.join(" ");
-
-		// Add model name on the right side, plus thinking level if model supports it
+		// Reserve model/thinking and core token counts before fitting the path and optional stats.
 		const modelName = state.model?.id || "no-model";
+		const thinkingLevel = state.thinkingLevel || "off";
+		const thinking = state.model?.reasoning ? ` • ${thinkingLevel === "off" ? "thinking off" : thinkingLevel}` : "";
+		const rightBudget = Math.max(0, width - Math.min(coreStatsWidth + 2, Math.floor(width / 2)));
+		const thinkingWidth = visibleWidth(thinking);
+		let rightSide =
+			rightBudget > thinkingWidth
+				? truncateToWidth(modelName, rightBudget - thinkingWidth, "…") + thinking
+				: truncateToWidth(modelName + thinking, rightBudget, "");
 
-		let statsLeftWidth = visibleWidth(statsLeft);
-
-		// If statsLeft is too wide, truncate it
-		if (statsLeftWidth > width) {
-			statsLeft = truncateToWidth(statsLeft, width, "...");
-			statsLeftWidth = visibleWidth(statsLeft);
-		}
-
-		// Calculate available space for padding (minimum 2 spaces between stats and model)
-		const minPadding = 2;
-
-		// Add thinking level indicator if model supports reasoning
-		let rightSideWithoutProvider = modelName;
-		if (state.model?.reasoning) {
-			const thinkingLevel = state.thinkingLevel || "off";
-			rightSideWithoutProvider =
-				thinkingLevel === "off" ? `${modelName} • thinking off` : `${modelName} • ${thinkingLevel}`;
-		}
 		// A virtual model routes each request; show where the latest response went.
 		const routed = this.session.routedModel;
 		if (routed) {
 			const level = routed.thinkingLevel ? ` • ${routed.thinkingLevel}` : "";
-			rightSideWithoutProvider += ` → ${routed.model.id}${level}`;
+			rightSide += truncateToWidth(` → ${routed.model.id}${level}`, rightBudget - visibleWidth(rightSide), "…");
 		}
 
-		// Prepend the provider in parentheses if there are multiple providers and there's enough room
-		let rightSide = rightSideWithoutProvider;
+		// Provider names are useful only when the rest of the footer fits in full.
 		if (this.footerData.getAvailableProviderCount() > 1 && state.model) {
-			rightSide = `(${state.model!.provider}) ${rightSideWithoutProvider}`;
-			if (statsLeftWidth + minPadding + visibleWidth(rightSide) > width) {
-				// Too wide, fall back
-				rightSide = rightSideWithoutProvider;
+			const withProvider = `(${state.model.provider}) ${rightSide}`;
+			if (visibleWidth(pwd) + visibleWidth(statsParts.join(" ")) + visibleWidth(withProvider) + 4 <= width) {
+				rightSide = withProvider;
 			}
 		}
 
-		const rightSideWidth = visibleWidth(rightSide);
-		const totalNeeded = statsLeftWidth + minPadding + rightSideWidth;
-
-		let statsLine: string;
-		if (totalNeeded <= width) {
-			// Both fit - add padding to right-align model
-			const padding = " ".repeat(width - statsLeftWidth - rightSideWidth);
-			statsLine = statsLeft + padding + rightSide;
-		} else {
-			// Need to truncate right side
-			const availableForRight = width - statsLeftWidth - minPadding;
-			if (availableForRight > 0) {
-				const truncatedRight = truncateToWidth(rightSide, availableForRight, "");
-				const truncatedRightWidth = visibleWidth(truncatedRight);
-				const padding = " ".repeat(Math.max(0, width - statsLeftWidth - truncatedRightWidth));
-				statsLine = statsLeft + padding + truncatedRight;
-			} else {
-				// Not enough space for right side at all
-				statsLine = statsLeft;
-			}
+		const rightWidth = visibleWidth(rightSide);
+		const leftBudget = Math.max(0, width - rightWidth - (rightWidth > 0 ? 2 : 0));
+		const pathReserve = Math.min(visibleWidth(pwd), 12, Math.max(0, leftBudget - coreStatsWidth - 2));
+		let statsLeft = statsParts.join(" ");
+		while (statsParts.length > coreStatsCount && visibleWidth(statsLeft) + pathReserve + 2 > leftBudget) {
+			statsParts.pop();
+			statsLeft = statsParts.join(" ");
 		}
-
-		// Apply dim to each part separately. statsLeft may contain color codes (for context %)
-		// that end with a reset, which would clear an outer dim wrapper. So we dim the parts
-		// before and after the colored section independently.
-		const dimStatsLeft = theme.fg("dim", statsLeft);
-		const remainder = statsLine.slice(statsLeft.length); // padding + rightSide
-		const dimRemainder = theme.fg("dim", remainder);
-
-		const pwdLine = truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "..."));
-		const lines = [pwdLine, dimStatsLeft + dimRemainder];
+		statsLeft = truncateToWidth(statsLeft, leftBudget, "…");
+		const pathBudget = Math.max(0, leftBudget - visibleWidth(statsLeft) - (statsLeft ? 2 : 0));
+		const path = truncateToWidth(pwd, pathBudget, "…");
+		const leftSide = path + (path && statsLeft ? "  " : "") + statsLeft;
+		const padding = " ".repeat(Math.max(0, width - visibleWidth(leftSide) - rightWidth));
+		// Dim each section separately so colored context warnings retain their styling.
+		const lines = [theme.fg("dim", leftSide) + theme.fg("dim", padding + rightSide)];
 
 		// Add extension statuses on a single line, sorted by key alphabetically
 		const extensionStatuses = this.footerData.getExtensionStatuses();

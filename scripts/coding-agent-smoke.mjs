@@ -18,7 +18,7 @@ export function smokeTestCodingAgent(directory, runtime = process.execPath) {
 		LOCALAPPDATA: home,
 		XDG_CONFIG_HOME: home,
 		XDG_CACHE_HOME: home,
-		PI_EXT_CODING_AGENT_DIR: join(home, ".pi-ext"),
+		PIE_CODING_AGENT_DIR: join(home, ".pie"),
 		PI_OFFLINE: "1",
 		PI_TELEMETRY: "0",
 	};
@@ -33,7 +33,7 @@ assert.equal(typeof SessionManager.inMemory, "function");
 assert.equal(typeof ModelRuntime.create, "function");
 `);
 		execFileSync(runtime, [entry], { cwd: directory, env, stdio: ["inherit", "pipe", "pipe"], timeout: 30_000 });
-		for (const cli of new Set([manifest.bin.pi, "dist/cli.js"])) {
+		for (const cli of new Set([manifest.bin.pie, "dist/cli.js"])) {
 			const output = execFileSync(runtime, [join(packageDir, cli), "--version"], {
 				cwd: directory,
 				encoding: "utf8",
@@ -41,7 +41,7 @@ assert.equal(typeof ModelRuntime.create, "function");
 				stdio: ["inherit", "pipe", "pipe"],
 				timeout: 30_000,
 			});
-			if (output.trim() !== manifest.version) throw new Error(`Unexpected version from ${cli}: ${output}`);
+			if (output.trim() !== (manifest.piConfig?.version ?? manifest.version)) throw new Error(`Unexpected version from ${cli}: ${output}`);
 		}
 	} finally {
 		rmSync(entry, { force: true });

@@ -457,7 +457,7 @@ export function getExamplesPath(): string {
 
 /** Get path to CHANGELOG.md */
 export function getChangelogPath(): string {
-	return resolve(join(getPackageDir(), "CHANGELOG.md"));
+	return resolve(join(getPackageDir(), "PIE_CHANGELOG.md"));
 }
 
 /**
@@ -544,9 +544,8 @@ export function detectInstallChange(packageJsonPath = startupPackageJsonPath): I
 	} catch (error) {
 		return (error as NodeJS.ErrnoException).code === "ENOENT" ? { kind: "removed" } : undefined;
 	}
-	return installed.version && installed.version !== VERSION
-		? { kind: "updated", version: installed.version }
-		: undefined;
+	const installedVersion = installed.piConfig?.version || installed.version;
+	return installedVersion && installedVersion !== VERSION ? { kind: "updated", version: installedVersion } : undefined;
 }
 
 // =============================================================================
@@ -559,6 +558,7 @@ interface PackageJson {
 	piConfig?: {
 		name?: string;
 		configDir?: string;
+		version?: string;
 	};
 }
 
@@ -576,12 +576,12 @@ try {
 
 const piConfigName: string | undefined = pkg.piConfig?.name;
 export const PACKAGE_NAME: string = pkg.name || "@earendil-works/pi-coding-agent";
-export const APP_NAME: string = piConfigName || "pi";
-export const APP_TITLE: string = piConfigName ? APP_NAME : "π";
-export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".pi";
-export const VERSION: string = pkg.version || "0.0.0";
+export const APP_NAME: string = piConfigName || "pie";
+export const APP_TITLE: string = APP_NAME;
+export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".pie";
+export const VERSION: string = pkg.piConfig?.version || pkg.version || "0.0.0";
 
-// e.g., PI_CODING_AGENT_DIR or TAU_CODING_AGENT_DIR
+// e.g., PIE_CODING_AGENT_DIR or TAU_CODING_AGENT_DIR
 const ENV_APP_NAME = APP_NAME.toUpperCase().replace(/[^A-Z0-9_]/g, "_");
 export const ENV_AGENT_DIR = `${ENV_APP_NAME}_CODING_AGENT_DIR`;
 export const ENV_SESSION_DIR = `${ENV_APP_NAME}_CODING_AGENT_SESSION_DIR`;
@@ -599,10 +599,10 @@ export function getShareViewerUrl(gistId: string): string {
 }
 
 // =============================================================================
-// User Config Paths (~/.pi-ext/*)
+// User Config Paths (~/.pie/*)
 // =============================================================================
 
-/** Get the global config and runtime directory (default: ~/.pi-ext). */
+/** Get the global config and runtime directory (default: ~/.pie). */
 export function getAgentDir(): string {
 	const envDir = process.env[ENV_AGENT_DIR];
 	if (envDir) {
