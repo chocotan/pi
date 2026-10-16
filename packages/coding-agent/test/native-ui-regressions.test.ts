@@ -70,13 +70,19 @@ describe("native UI regressions", () => {
 		try {
 			await terminal.waitForRender();
 			for (const expanded of [true, false, true, false]) {
-				const row = terminal.getViewport().findIndex((line) => line.includes(expanded ? "▸" : "▾"));
+				const row = terminal
+					.getViewport()
+					.findIndex((line) => (kind === "thought" ? line.includes(expanded ? "▸" : "▾") : line.includes("●")));
 				expect(row).toBeGreaterThanOrEqual(0);
 				terminal.sendInput(`\x1b[<0;3;${row + 1}M`);
 				terminal.sendInput(`\x1b[<0;3;${row + 1}m`);
 				await terminal.waitForRender();
 				const screen = terminal.getViewport().join("\n");
-				expect(screen).toContain(expanded ? "▾" : "▸");
+				if (kind === "thought") expect(screen).toContain(expanded ? "▾" : "▸");
+				else {
+					expect(screen).toContain("●");
+					expect(screen).not.toMatch(/[▸▾]/);
+				}
 				expect(screen.includes("hidden content")).toBe(expanded);
 			}
 		} finally {

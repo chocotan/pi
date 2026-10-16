@@ -127,7 +127,8 @@ describe("SubagentDetailView", () => {
 		expect(view.handleMouse(mouse(3, row))?.handled).toBe(true);
 		lines = view.render(100).map(stripAnsi);
 		row = lines.findIndex((line) => line.includes("$ df -h"));
-		expect(lines[row]).toContain("▾");
+		expect(lines[row]).toContain("●");
+		expect(lines[row]).not.toMatch(/[▸▾]/);
 		expect(lines[row + 1]).toContain("Filesystem");
 		expect(lines[row + 2]).toContain("/dev/local");
 		expect(lines[row + 3]).toContain("disk.txt");

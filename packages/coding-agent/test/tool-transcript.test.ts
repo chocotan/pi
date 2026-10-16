@@ -92,14 +92,16 @@ describe("tool transcript layout", () => {
 		expect(lines[3]).toContain("get_subagent_result");
 		expect(transcript.handleMouse(mouse(3, lines.length))?.handled).toBe(true);
 		lines = transcript.render(100).map(stripAnsi);
-		expect(lines[3]).toContain("▾");
+		expect(lines[3]).toContain("● get_subagent_result");
+		expect(lines[3]).not.toMatch(/[▸▾]/);
 		const output = lines.findIndex((line) => line.includes("Child result"));
 		expect(output).toBeGreaterThan(3);
 		expect(transcript.handleMouse(mouse(output, lines.length))?.handled).not.toBe(true);
 		expect(transcript.render(100).map(stripAnsi).join("\n")).toContain("Child result");
 		expect(transcript.handleMouse(mouse(3, lines.length))?.handled).toBe(true);
 		lines = transcript.render(100).map(stripAnsi);
-		expect(lines[3]).toContain("▸");
+		expect(lines[3]).toContain("● get_subagent_result");
+		expect(lines[3]).not.toMatch(/[▸▾]/);
 		expect(lines.join("\n")).not.toContain("Child result");
 	});
 	it("preserves clickable content rendered by an expanded tool", () => {

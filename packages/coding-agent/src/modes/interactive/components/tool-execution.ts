@@ -293,7 +293,7 @@ export class ToolExecutionComponent extends Container {
 		const errorText =
 			typeof recordedError === "string" ? recordedError.split("\n")[0] : this.getTextOutput().split("\n")[0];
 		const error = this.result?.isError ? ` · ${theme.fg("toolOutput", errorText)}` : "";
-		const budget = Math.max(1, available - visibleWidth(status) - 3 - visibleWidth(suffix) - visibleWidth(error));
+		const budget = Math.max(1, available - visibleWidth(status) - 1 - visibleWidth(suffix) - visibleWidth(error));
 		const renderedCall =
 			(this.callRendererComponent ?? this.createCallFallback())
 				.render(available)
@@ -305,8 +305,7 @@ export class ToolExecutionComponent extends Container {
 			? `${theme.fg("toolTitle", theme.bold(this.toolName))} ${theme.fg("accent", description)}`
 			: sliceByColumn(renderedCall, leading, visibleWidth(plainCall.trim()));
 		const call = truncateToWidth(title, budget, "…");
-		const marker = this.expanded ? "▾" : "▸";
-		const text = truncateToWidth(`${marker} ${status} ${call}${error}${suffix}`, available, "…");
+		const text = truncateToWidth(`${status} ${call}${error}${suffix}`, available, "…");
 		const line = " ".repeat(pad) + text + " ".repeat(Math.max(0, width - pad - visibleWidth(text)));
 		const color = this.result?.isError ? "toolErrorBg" : this.isPartial ? "toolPendingBg" : "toolSuccessBg";
 		return this.headerHovered ? highlightHover(line) : theme.bg(color, line);
