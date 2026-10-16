@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
 const repository = "https://github.com/chocotan/pi.git";
-const defaultRef = "feat/pi-ext-native-workflow-ui";
+const defaultRef = "main";
 const packageName = "@earendil-works/pi-coding-agent";
 
 async function downloadCatalog(url) {

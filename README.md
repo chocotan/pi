@@ -2,7 +2,7 @@
 
 Pie is a source fork of [Pi](https://github.com/earendil-works/pi), originally created by **Mario Zechner**. It keeps Pi's extensible agent runtime and adds built-in task tracking, isolated subagents, background shell jobs, structured user questions, a usage dashboard, and a single-pane terminal interface with floating panels.
 
-Its product version starts at **0.1.0**, independent of upstream SDK package versions. This fork lives at [chocotan/pi](https://github.com/chocotan/pi). Its command is `pie`, its global configuration directory is `~/.pie`, and project configuration lives in `.pie`. The original MIT license and attribution are preserved in [LICENSE](LICENSE).
+Its product version is independent of upstream SDK package versions. This fork lives at [chocotan/pi](https://github.com/chocotan/pi). Its command is `pie`, its global configuration directory is `~/.pie`, and project configuration lives in `.pie`. The original MIT license and attribution are preserved in [LICENSE](LICENSE).
 
 ## What Pie adds
 
@@ -24,13 +24,13 @@ See [Pie features and configuration](packages/coding-agent/docs/pie.md) for plug
 Install Pie on Linux or macOS with Node.js 22.19+ and Git:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/chocotan/pi/feat/pi-ext-native-workflow-ui/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/chocotan/pi/main/scripts/install.sh | bash
 ```
 
 Or install from a Git checkout:
 
 ```bash
-git clone --branch feat/pi-ext-native-workflow-ui https://github.com/chocotan/pi.git
+git clone --branch main https://github.com/chocotan/pi.git
 cd pi
 ./scripts/install.sh --local
 ```
@@ -40,17 +40,17 @@ The installer keeps a managed checkout in `~/.pie/source`, versioned runtimes in
 Update the installed application with `pie update`, or:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/chocotan/pi/feat/pi-ext-native-workflow-ui/scripts/update.sh | bash
+curl -fsSL https://raw.githubusercontent.com/chocotan/pi/main/scripts/update.sh | bash
 ```
 
-Git checkouts can also run `./scripts/update.sh`. Updates require a clean managed checkout and fast-forward its recorded branch; prior runtimes remain available if a build fails. Use `--bin-dir` or `PIE_INSTALL_BIN_DIR` to choose the launcher directory and `PIE_CODING_AGENT_DIR` to choose a separate installation/configuration root. Windows users can run Pie from source or a local npm consumer as described below; these shell installers target Linux/macOS.
+Git checkouts can also run `./scripts/update.sh`. New installations track `main`. Updates require a clean managed checkout and fast-forward its recorded branch; existing installations keep their recorded branch, and prior runtimes remain available if a build fails. Use `--bin-dir` or `PIE_INSTALL_BIN_DIR` to choose the launcher directory and `PIE_CODING_AGENT_DIR` to choose a separate installation/configuration root. Windows users can run Pie from source or a local npm consumer as described below; these shell installers target Linux/macOS.
 
 ## Run from source
 
 Use Node.js **22.19 or newer**. Clone this fork and check out the branch or revision you intend to use:
 
 ```bash
-git clone --branch feat/pi-ext-native-workflow-ui https://github.com/chocotan/pi.git
+git clone --branch main https://github.com/chocotan/pi.git
 cd pi
 npm install --ignore-scripts
 ./pi-test.sh
