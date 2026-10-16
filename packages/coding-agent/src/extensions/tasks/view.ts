@@ -17,29 +17,48 @@ export class TodoPanel implements Component {
 	private readonly getState: () => TaskState;
 	private readonly close: () => void;
 	private readonly select: (task: TaskRecord) => void;
+	private readonly more: () => void;
+	private moreRow: number | undefined;
 	private offset = 0;
 	private positions: Array<{ from: number; to: number; task: TaskRecord }> = [];
 	private width = 0;
 	private bodyHeight = 0;
 	private hovered: string | undefined;
 
-	constructor(ui: TUI, getState: () => TaskState, close: () => void, select: (task: TaskRecord) => void) {
+	constructor(
+		ui: TUI,
+		getState: () => TaskState,
+		close: () => void,
+		select: (task: TaskRecord) => void,
+		more: () => void,
+	) {
 		this.ui = ui;
 		this.getState = getState;
 		this.close = close;
 		this.select = select;
+		this.more = more;
 	}
 	invalidate(): void {}
 	render(width: number): string[] {
 		this.width = width;
 		const state = this.getState();
 		const done = state.tasks.filter((task) => task.status === "completed").length;
-		const open = state.tasks.filter((task) => task.status !== "completed");
-		const tasks = state.tasks.length > 5 ? (open.length ? open : state.tasks.slice(0, 1)) : state.tasks;
+		this.moreRow = undefined;
+		const tasks =
+			state.tasks.length > 5
+				? [
+						...state.tasks.filter((task) => task.status === "in_progress"),
+						...state.tasks.filter((task) => task.status === "pending"),
+						...state.tasks.filter((task) => task.status === "completed").reverse(),
+					].slice(0, 5)
+				: state.tasks;
 		const hidden = state.tasks.length - tasks.length;
 		const inner = Math.max(1, width - 4);
-		const hiddenLabel = hidden ? ` · ${hidden} done hidden` : "";
-		const title = truncateToWidth(`Todo · ${done}/${state.tasks.length}${hiddenLabel}`, Math.max(0, width - 8), "…");
+		const title = truncateToWidth(
+			`Todo · ${tasks.length}/${state.tasks.length} · ${done} done`,
+			Math.max(0, width - 8),
+			"…",
+		);
 		const close = this.hovered === "close" ? highlightHover("[x]") : "[x]";
 		const header = `╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}${close} ╮`;
 		const capacity = Math.max(0, Math.floor(this.ui.terminal.rows * 0.35) - 2);
@@ -67,6 +86,12 @@ export class TodoPanel implements Component {
 			const task = this.positions.find((position) => index + 1 >= position.from && index + 1 < position.to)?.task;
 			lines.push(task && task.id === this.hovered ? highlightHover(row) : row);
 		}
+		if (hidden) {
+			this.moreRow = lines.length;
+			const label = truncateToWidth(theme.fg("muted", `+${hidden} hidden · view all`), inner, "…");
+			const row = `│ ${label}${" ".repeat(Math.max(0, inner - visibleWidth(label)))} │`;
+			lines.push(this.hovered === "more" ? highlightHover(row) : row);
+		}
 		const footer =
 			body.length > capacity
 				? ` ${this.offset + 1}–${Math.min(body.length, this.offset + capacity)}/${body.length} · scroll `
@@ -87,17 +112,26 @@ export class TodoPanel implements Component {
 			event.y > 0 && event.y <= this.bodyHeight
 				? this.positions.find((position) => event.y >= position.from && event.y < position.to)?.task
 				: undefined;
+		const more = this.moreRow !== undefined && event.y === this.moreRow;
 		if (event.type === "move" || event.type === "leave") {
-			const hovered = event.type === "move" && event.button === "none" ? (closing ? "close" : task?.id) : undefined;
+			const hovered =
+				event.type === "move" && event.button === "none"
+					? closing
+						? "close"
+						: more
+							? "more"
+							: task?.id
+					: undefined;
 			const changed = hovered !== this.hovered;
 			this.hovered = hovered;
 			return hovered !== undefined || changed ? { handled: true, render: changed } : undefined;
 		}
 		if (event.button !== "left") return undefined;
-		if (!closing && !task) return undefined;
+		if (!closing && !task && !more) return undefined;
 		if (event.type === "press") return { handled: true, render: false };
 		if (event.type !== "click") return undefined;
 		if (closing) this.close();
+		else if (more) this.more();
 		else if (task) this.select(task);
 		return { handled: true };
 	}

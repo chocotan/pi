@@ -2524,7 +2524,7 @@ export class InteractiveMode {
 				anchor: "top-right",
 				width: "45%",
 				minWidth: 28,
-				maxHeight: "70%",
+				maxHeight: "75%",
 				margin: 1,
 				nonCapturing: true,
 			});

@@ -50,6 +50,10 @@ Disable individual plugins in `~/.pie/settings.json`:
 
 The SDK follows the existing built-in extension pattern: add the factories explicitly to a `DefaultResourceLoader`, then bind extensions before running. Exports include `tasksExtension`, `createSubagentsExtension`, and `createAskUserExtension`.
 
+## First-start model import
+
+When interactive startup finds no Pie `models.json` but detects Pi's model configuration, it asks whether to import it. The prompt shows source and destination paths. Confirmation copies only `models.json` with private permissions; existing Pie files are never overwritten. Skip or Escape continues startup. Headless, help, version and model-list commands never prompt. Pi's `~/.pi/agent/models.json`, `~/.pi/models.json`, or an explicit `PI_CODING_AGENT_DIR` may be used as the import source; normal Pie operation still reads only `.pie`.
+
 ## Todo
 
 Tools: `TaskCreate`, `TaskList`, `TaskGet`, `TaskUpdate`.
@@ -58,7 +62,7 @@ Tasks start as `pending`; use `in_progress` during work and `completed` only onc
 
 State is stored as session custom entries and reconstructed from the active branch. Tree navigation restores the tasks belonging to that point; compaction does not erase the task state. In-memory sessions remain in memory.
 
-`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel appears at the top right when tasks exist without taking keyboard focus. An empty list stays hidden; deleting the last task closes the panel. Lists longer than five hide completed or failed items without deleting them. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
+`/tasks` and `/todos` open the floating Todo panel in the TUI and show task details in other modes. The panel appears at the top right when tasks exist without taking keyboard focus. An empty list stays hidden; deleting the last task closes the panel. Lists show up to five entries, prioritizing unfinished work and retaining recent completed entries to fill the visible slots. Only overflow is hidden without deleting it; click `view all` to inspect the complete list. It shows task subjects; click a task for its saved requirements or `[x]` to close. Task updates do not reopen a dismissed panel; `/tasks` reopens it.
 
 ## Subagents
 
@@ -81,7 +85,7 @@ Runs are session-owned. Quit, reload, session replacement, and tree navigation s
 
 Provider-reported child usage is recorded through `pi.appendUsage()` once. Reading the result again does not add usage.
 
-The `Agent` tool row shows its invocation description rather than listing prompt, model, and execution options. Result queries use the saved run's description; expand either row to inspect all parameters. The Subagents panel title shows the active run's description. Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Tool calls stay on separate rows. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
+The `Agent` tool row shows its invocation description rather than listing prompt, model, and execution options. Result queries use the saved run's description; expand either row to inspect all parameters. The Subagents panel has a fixed `Subagents` heading; each run row shows its own description. Subagents float at the top right below Todo, with each run on its own row showing a description, status icon, and elapsed time. When Todo is absent or closed, Subagents move up. Empty run lists stay hidden. Each panel has a close button. Tool calls stay on separate rows. Click an entry to open its own conversation, including instructions, Thinking, tool calls, and answers; close or press Escape to return to the parent. Extra runs have an explicit `+N` entrance. `/agents` retains result, stop, and steering actions.
 
 ### Agent definitions
 

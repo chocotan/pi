@@ -41,11 +41,13 @@ describe("workflow floating and inline widgets", () => {
 		};
 		const close = vi.fn();
 		const select = vi.fn();
+		const more = vi.fn();
 		const panel = new TodoPanel(
 			{ terminal: { rows: 24 }, requestRender: vi.fn() } as unknown as TUI,
 			() => state,
 			close,
 			select,
+			more,
 		);
 		for (const width of [10, 30, 80]) {
 			const lines = panel.render(width);
@@ -79,11 +81,78 @@ describe("workflow floating and inline widgets", () => {
 			],
 		};
 		text = stripAnsi(panel.render(80).join("\n"));
-		expect(text).toContain("4 done hidden");
+		expect(text).toContain("+2 hidden");
+		expect(text).toContain("Todo · 5/7");
 		expect(text).not.toContain("Done 0");
 		expect(text).toContain("Open 0");
 		panel.handleMouse(mouse(76, 0));
 		expect(close).toHaveBeenCalledOnce();
+	});
+	it.each([5, 6, 20])("keeps five recent finished subagents and hides only overflow (%s total)", (total) => {
+		const records: SubagentRecord[] = Array.from({ length: total }, (_, index) => ({
+			id: String(index),
+			agent: "worker",
+			description: `Finished ${index}`,
+			prompt: "",
+			status: "completed",
+			model: "faux/local",
+			thinking: "off",
+			startedAt: index,
+			finishedAt: index + 1000,
+			output: "",
+		}));
+		const open = vi.fn();
+		const more = vi.fn();
+		const panel = new SubagentPanel(
+			{ terminal: { rows: 40 }, requestRender: vi.fn() } as unknown as TUI,
+			records,
+			open,
+			more,
+			vi.fn(),
+		);
+		const rows = panel.render(80).map(stripAnsi);
+		expect(rows[0]).toContain(`5/${total}`);
+		expect(rows.filter((line) => line.includes("●"))).toHaveLength(5);
+		panel.handleMouse(mouse(3, 5));
+		expect(open).toHaveBeenCalledWith(records[total - 5]);
+		if (total > 5) {
+			const row = rows.findIndex((line) => line.includes(`+${total - 5} hidden`));
+			expect(row).toBe(6);
+			panel.handleMouse(mouse(3, row));
+			expect(more).toHaveBeenCalledOnce();
+		}
+		panel.dispose();
+	});
+	it.each([5, 6, 20])("keeps five Todo entries with a working overflow entrance (%s total)", (total) => {
+		const state: TaskState = {
+			nextId: total + 1,
+			tasks: Array.from({ length: total }, (_, index) => ({
+				id: String(index + 1),
+				subject: `Task ${index}`,
+				description: "Saved requirements",
+				status: "completed",
+				blockedBy: [],
+				metadata: {},
+			})),
+		};
+		const select = vi.fn();
+		const more = vi.fn();
+		const panel = new TodoPanel(
+			{ terminal: { rows: 40 }, requestRender: vi.fn() } as unknown as TUI,
+			() => state,
+			vi.fn(),
+			select,
+			more,
+		);
+		const rows = panel.render(80).map(stripAnsi);
+		expect(rows[0]).toContain(`5/${total}`);
+		expect(rows.filter((line) => line.includes("#"))).toHaveLength(5);
+		if (total > 5) {
+			const row = rows.findIndex((line) => line.includes(`+${total - 5} hidden`));
+			expect(row).toBe(6);
+			panel.handleMouse(mouse(3, row));
+			expect(more).toHaveBeenCalledOnce();
+		}
 	});
 	it("animates queued and running subagents, then stops on a settled status", () => {
 		vi.useFakeTimers();
@@ -180,8 +249,8 @@ describe("workflow floating and inline widgets", () => {
 			close,
 		);
 		const mixedText = stripAnsi(mixed.render(80).join("\n"));
-		expect(mixedText).toContain("Running 0 · 3/7");
-		expect(mixedText).not.toContain("Done 0");
+		expect(mixedText).toContain("Subagents · 5/7");
+		expect(mixedText).toContain("+2 hidden");
 		expect(mixedText).toContain("Running 0");
 		const crowded = new SubagentPanel(
 			ui,

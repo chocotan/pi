@@ -282,7 +282,7 @@ describe("native subagents plugin", () => {
 				.render(80)
 				.map(stripAnsi);
 			expect(rows.join("\n")).toContain("Inspect auth flow");
-			expect(rows[0]).toContain("Inspect auth flow");
+			expect(rows[0]).toContain("Subagents");
 			expect(record.model).toBe(`${harness.getModel().provider}/${harness.getModel().id}`);
 			expect(harness.session.getSessionStats().assistantMessages).toBe(2);
 			expect(

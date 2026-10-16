@@ -26,7 +26,7 @@ describe("Pie product identity", () => {
 			".pie",
 			"PIE_CODING_AGENT_DIR",
 			"PIE_CODING_AGENT_SESSION_DIR",
-			"0.1.0",
+			"0.1.1",
 		]);
 		vi.stubEnv(ENV_AGENT_DIR, "");
 		vi.stubEnv("PI_EXT_CODING_AGENT_DIR", "/unused-old-config");
@@ -36,7 +36,7 @@ describe("Pie product identity", () => {
 	});
 	it("uses its own logo and changelog", () => {
 		initTheme("dark");
-		expect(pieLogoLines().map(stripAnsi).join("\n")).toContain("pie");
+		expect(pieLogoLines().map(stripAnsi)).toEqual(["█▀█ ▀█▀ █▀▀", "█▀▀ ▄█▄ ██▄"]);
 		expect(pieLogoLines().map(stripAnsi).join("\n")).not.toContain("▀▀█");
 		expect(getChangelogPath()).toMatch(/PIE_CHANGELOG\.md$/);
 	});

@@ -30,6 +30,7 @@ import { resolveCredentialForPrint } from "./cli/credential-print.ts";
 import { processFileArguments } from "./cli/file-processor.ts";
 import { buildInitialMessage } from "./cli/initial-message.ts";
 import { listModels } from "./cli/list-models.ts";
+import { maybeImportPiModelConfig } from "./cli/pi-model-migration.ts";
 import { isPieUpdateCommand, runPieUpdate } from "./cli/pie-update.ts";
 import { createProjectTrustContext } from "./cli/project-trust.ts";
 import { selectSession } from "./cli/session-picker.ts";
@@ -676,6 +677,18 @@ export async function main(args: string[], options?: MainOptions) {
 
 	const startupSettingsManager = SettingsManager.create(cwd, agentDir);
 	const startupSettingsDiagnostics = collectSettingsDiagnostics(startupSettingsManager);
+
+	if (appMode === "interactive" && !parsed.help && parsed.listModels === undefined) {
+		try {
+			await maybeImportPiModelConfig(startupSettingsManager, { agentDir });
+		} catch (error) {
+			console.error(
+				chalk.yellow(
+					`Could not import Pi model configuration: ${error instanceof Error ? error.message : String(error)}`,
+				),
+			);
+		}
+	}
 
 	// Experimental first-time setup: theme choice and analytics opt-in.
 	// Runs before any runtime services are created so the chosen settings apply everywhere.

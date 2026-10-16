@@ -223,7 +223,7 @@ describe("terminal control hover", () => {
 		};
 		const close = vi.fn();
 		const select = vi.fn();
-		const panel = new TodoPanel(tui, () => state, close, select);
+		const panel = new TodoPanel(tui, () => state, close, select, vi.fn());
 		tui.start();
 		try {
 			await terminal.waitForRender();

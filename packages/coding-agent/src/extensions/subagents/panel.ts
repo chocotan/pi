@@ -48,23 +48,17 @@ export class SubagentPanel implements Component {
 			const active = (record: SubagentRecord) => (["running", "queued"].includes(record.status) ? 1 : 0);
 			return active(b) - active(a) || b.startedAt - a.startedAt;
 		});
-		const finished = (record: SubagentRecord) =>
-			["completed", "error", "stopped", "interrupted"].includes(record.status);
-		const active = sorted.filter((record) => !finished(record));
-		const records = sorted.length > 5 ? (active.length ? active : sorted.slice(0, 1)) : sorted;
-		const hidden = sorted.length - records.length;
+		const count = Math.min(5, sorted.length, Math.max(1, Math.floor(this.ui.terminal.rows * 0.35) - 2));
+		const records = sorted.slice(0, count);
+		const hidden = sorted.length - count;
 		if (!records.some((record) => ["running", "queued"].includes(record.status))) this.dispose();
-		const current = records.find((record) => ["running", "queued"].includes(record.status)) ?? records[0];
-		const heading = current?.description || current?.agent || "Subagents";
-		const title = truncateToWidth(`${heading} · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
+		const title = truncateToWidth(`Subagents · ${records.length}/${sorted.length}`, Math.max(0, width - 8), "…");
 		const close = this.hoveredRow === 0 ? highlightHover("[x]") : "[x]";
 		const lines = [
 			`╭ ${theme.fg("accent", theme.bold(title))}${" ".repeat(Math.max(0, width - visibleWidth(title) - 7))}${close} ╮`,
 		];
-		const availableRows = Math.max(1, Math.floor(this.ui.terminal.rows * 0.3) - 2);
-		const count = records.length > availableRows ? Math.max(1, availableRows - 1) : records.length;
 		const inner = Math.max(0, width - 4);
-		for (const record of records.slice(0, count)) {
+		for (const record of records) {
 			const color =
 				record.status === "completed"
 					? "success"
@@ -91,7 +85,7 @@ export class SubagentPanel implements Component {
 			lines.push(`│ ${text}${" ".repeat(Math.max(0, inner - visibleWidth(text)))} │`);
 			this.rows.push(record);
 		}
-		const overflow = hidden + Math.max(0, records.length - count);
+		const overflow = hidden;
 		if (overflow) {
 			const text = truncateToWidth(theme.fg("muted", `+${overflow} hidden · view all`), inner, "…");
 			lines.push(`│ ${text}${" ".repeat(Math.max(0, inner - visibleWidth(text)))} │`);

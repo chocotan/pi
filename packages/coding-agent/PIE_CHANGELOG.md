@@ -1,5 +1,16 @@
 # Pie changelog
 
+## [0.1.1]
+
+### Added
+
+- Interactive startup offers to import Pi's `models.json` when Pie has none; importing requires confirmation and never overwrites an existing file.
+
+### Fixed
+
+- Startup now uses a two-row block-letter PIE logo.
+- Todo and Subagents retain up to five visible entries and hide only overflow, including when all work has finished.
+
 ## [0.1.0]
 
 ### Added

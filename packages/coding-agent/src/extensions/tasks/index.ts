@@ -97,6 +97,8 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 		hidePanel();
 		dismissed = false;
 	};
+	const showTask = (task: TaskRecord) =>
+		pi.sendMessage({ customType: "pie.task-detail", content: JSON.stringify(task, null, 2), display: true });
 	const show = (ctx: ExtensionContext) => {
 		context = ctx;
 		state = readTaskState(ctx.sessionManager);
@@ -115,12 +117,17 @@ export default function tasksPlugin(pi: ExtensionAPI): void {
 						dismissed = true;
 						hidePanel();
 					},
-					(task) => {
-						pi.sendMessage({
-							customType: "pie.task-detail",
-							content: JSON.stringify(task, null, 2),
-							display: true,
-						});
+					showTask,
+					() => {
+						const tasks = [...state.tasks];
+						const labels = tasks.map((task) => `#${task.id} ${task.subject} · ${task.status}`);
+						void ctx.ui
+							.select("All tasks", labels)
+							.then((selected) => {
+								const task = tasks[labels.indexOf(selected ?? "")];
+								if (task) showTask(task);
+							})
+							.catch((error: unknown) => ctx.ui.notify(String(error), "error"));
 					},
 				),
 			{ placement: "floating", order: 10 },
