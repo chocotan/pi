@@ -7,10 +7,12 @@ import ponytailExtension from "./ponytail/index.ts";
 import subagentsExtension from "./subagents/index.ts";
 import tasksExtension from "./tasks/index.ts";
 import toolSearchExtension from "./tool-search/index.ts";
+import usageExtension from "./usage/index.ts";
 
 export const builtInExtensions: InlineExtension[] = [
 	{ name: "ask-user-question", factory: askUserExtension, replaceable: true, builtin: true },
 	{ name: "ponytail", factory: ponytailExtension, replaceable: true, builtin: true },
+	{ name: "usage", factory: usageExtension, replaceable: true, builtin: true },
 	{ name: "tasks", factory: tasksExtension, replaceable: true, builtin: true },
 	{ name: "subagents", factory: subagentsExtension, replaceable: true, builtin: true },
 	{ name: "llama.cpp", factory: llamaExtension, builtin: true },

@@ -231,10 +231,6 @@
       "$ref": "#/$defs/KeybindingValue",
       "description": "Open model selector"
     },
-    "app.sidebar.toggle": {
-      "$ref": "#/$defs/KeybindingValue",
-      "description": "Toggle task and subagent sidebar"
-    },
     "app.question.next": {
       "$ref": "#/$defs/KeybindingValue",
       "description": "Next questionnaire tab"
@@ -246,6 +242,50 @@
     "app.question.toggle": {
       "$ref": "#/$defs/KeybindingValue",
       "description": "Toggle questionnaire option"
+    },
+    "app.usage.day": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: day view"
+    },
+    "app.usage.week": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: week view"
+    },
+    "app.usage.month": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: month view"
+    },
+    "app.usage.total": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: all time"
+    },
+    "app.usage.calendar": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: calendar view"
+    },
+    "app.usage.previous": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: previous period"
+    },
+    "app.usage.next": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: next period"
+    },
+    "app.usage.up": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: scroll up"
+    },
+    "app.usage.down": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: scroll down"
+    },
+    "app.usage.rescan": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: rescan sessions"
+    },
+    "app.usage.close": {
+      "$ref": "#/$defs/KeybindingValue",
+      "description": "Usage: close"
     },
     "app.tools.expand": {
       "$ref": "#/$defs/KeybindingValue",

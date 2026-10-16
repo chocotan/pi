@@ -1,6 +1,6 @@
 # Pie built-in plugins
 
-Pie ships task tracking, subagents, and structured user questions as built-in plugins. The terminal provides a rounded composer and dismissible Todo/Subagents panels stacked at the top right. It is a fork of [Pi](https://github.com/earendil-works/pi), originally created by Mario Zechner; the original MIT license is preserved.
+Pie ships task tracking, subagents, structured user questions, Ponytail and a usage dashboard as built-in plugins. The terminal provides a rounded composer and dismissible Todo/Subagents panels stacked at the top right. It is a fork of [Pi](https://github.com/earendil-works/pi), originally created by Mario Zechner; the original MIT license is preserved.
 
 ## Configuration directory
 
@@ -37,6 +37,8 @@ Built-ins load by default in the CLI:
 - `builtin:tasks`
 - `builtin:subagents`
 - `builtin:ask-user-question`
+- `builtin:ponytail`
+- `builtin:usage`
 
 Disable individual plugins in `~/.pie/settings.json`:
 
@@ -131,6 +133,12 @@ Supports 1–4 questions with 2–4 options each, multi-select, a built-in `Type
 Wide TUI questionnaires place options and previews side by side; narrow views stack them. Free-text input uses the native input component and preserves the host's cursor and keybindings. RPC uses select/input dialogs. Non-interactive modes leave the tool inactive; a direct call without UI returns an error stating that the user never saw the questions. Cancellation is not approval.
 
 The schema, validation, normalization, response format, and RPC behavior are adapted from [rpiv-ask-user-question](https://github.com/juicesharp/rpiv-mono/tree/2d88b79c08ce19ffeecbe85d5ee1071046b708c0/packages/rpiv-ask-user-question). The view is adapted to this fork's native components and keybindings. The [MIT notice](third-party/rpiv-ask-user-question-LICENSE) is included. No rpiv-config or internationalization dependency is required.
+
+## Usage dashboard
+
+`/usage [day|week|month|total|cal]` opens the recorded token and cost dashboard. It groups usage by provider/model, supports period navigation and rescanning, and includes a calendar heatmap. Non-interactive modes write the table or calendar to stderr. It reads Pie's session directory, including directory overrides, and makes no provider or subscription-quota requests. Keyboard shortcuts are configurable under `app.usage.*` in `keybindings.json`.
+
+The implementation is adapted from [pi-usage](https://github.com/chocotan/pi-usage) 0.2.0, with its [MIT license and attribution](third-party/pi-usage/NOTICE.md) preserved. Disable it with `-builtin:usage` or replace it with another plugin registering `/usage`.
 
 ## Terminal behavior
 
